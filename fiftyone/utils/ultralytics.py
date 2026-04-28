@@ -23,6 +23,7 @@ import fiftyone.zoo.models as fozm
 ultralytics = fou.lazy_import("ultralytics")
 torch = fou.lazy_import("torch")
 torchvision = fou.lazy_import("torchvision")
+_yoloe = fou.lazy_import("ultralytics.models.yolo.yoloe")
 
 
 def convert_ultralytics_model(model):
@@ -1202,10 +1203,8 @@ def _detections_to_visual_prompts(detections, img_width, img_height):
 
 def _get_yoloe_vp_predictor():
     try:
-        from ultralytics.models.yolo.yoloe import YOLOEVPSegPredictor
-    except ImportError as e:
+        return _yoloe.YOLOEVPSegPredictor
+    except (ImportError, AttributeError) as e:
         raise ImportError(
             "Visual prompts require ultralytics>=8.4.0 with YOLOE support"
         ) from e
-    else:
-        return YOLOEVPSegPredictor
