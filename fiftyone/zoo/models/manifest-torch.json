@@ -7169,7 +7169,7 @@
                 }
             },
             "default_deployment_config_dict": {
-                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOEVPModel",
+                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOModel",
                 "config": {
                     "entrypoint_fcn": "ultralytics.YOLO",
                     "entrypoint_args": {
@@ -7227,7 +7227,7 @@
                 }
             },
             "default_deployment_config_dict": {
-                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOEVPModel",
+                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOModel",
                 "config": {
                     "entrypoint_fcn": "ultralytics.YOLO",
                     "entrypoint_args": {
@@ -7285,7 +7285,7 @@
                 }
             },
             "default_deployment_config_dict": {
-                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOEVPModel",
+                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOModel",
                 "config": {
                     "entrypoint_fcn": "ultralytics.YOLO",
                     "entrypoint_args": {
@@ -7343,7 +7343,7 @@
                 }
             },
             "default_deployment_config_dict": {
-                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOEVPModel",
+                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOModel",
                 "config": {
                     "entrypoint_fcn": "ultralytics.YOLO",
                     "entrypoint_args": {
@@ -7401,7 +7401,7 @@
                 }
             },
             "default_deployment_config_dict": {
-                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOEVPModel",
+                "type": "fiftyone.utils.ultralytics.FiftyOneYOLOModel",
                 "config": {
                     "entrypoint_fcn": "ultralytics.YOLO",
                     "entrypoint_args": {
