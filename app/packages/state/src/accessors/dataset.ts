@@ -1,7 +1,6 @@
 import { is3d } from "@fiftyone/utilities";
-import { useRecoilValue } from "recoil";
+import { useRecoilCallback, useRecoilValue } from "recoil";
 import {
-  State,
   dataset,
   datasetId,
   datasetName,
@@ -9,6 +8,8 @@ import {
   groupMediaTypes,
   isGroup,
   selectedMediaField,
+  skeleton,
+  State,
 } from "../recoil";
 
 /**
@@ -61,6 +62,19 @@ export const useIsGroupDataset = () => {
 };
 
 export type GroupSliceMediaType = "video" | "3d" | "image";
+
+/**
+ * Hook which provides a function to get the default keypoint skeleton for a
+ * given field.
+ */
+export const useGetKeypointSkeleton = () => {
+  return useRecoilCallback(
+    ({ snapshot }) =>
+      (field: string) =>
+        snapshot.getLoadable(skeleton(field)).getValue(),
+    []
+  );
+};
 
 /**
  * Returns the names of dataset-level group slices whose media type matches

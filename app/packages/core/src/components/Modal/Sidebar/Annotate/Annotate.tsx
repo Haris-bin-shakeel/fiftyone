@@ -1,3 +1,4 @@
+import { useRegisterAIAnnotationEventHandlers } from "@fiftyone/annotation/src/agents/hooks/useRegisterAIAnnotationEventHandlers";
 import { KnownContexts, useUndoRedo } from "@fiftyone/commands";
 import { LoadingSpinner } from "@fiftyone/components";
 import { useIsGroupDataset } from "@fiftyone/state";
@@ -107,6 +108,8 @@ interface AnnotateProps {
 }
 
 const Annotate = ({ disabledReason, loadSchemas }: AnnotateProps) => {
+  useRegisterAIAnnotationEventHandlers();
+
   const { schemaManagerDisplayed } = useSchemaManagerModal();
   const loading = useAtomValue(labelSchemasData) === null;
 

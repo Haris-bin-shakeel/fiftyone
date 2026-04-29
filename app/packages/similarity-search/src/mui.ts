@@ -1,10 +1,9 @@
 /**
- * Centralized MUI imports for components without voodo equivalents.
+ * Centralized MUI imports for icons without voodo equivalents.
  *
- * All icons have been migrated to voodo's IconName strings (v0.0.22+).
- * Only layout components remain here pending voodo equivalents.
+ * Most icons have been migrated to voodo's IconName strings (v0.0.22+).
+ * Remaining here: individual icons that voodo doesn't yet provide.
  */
 
-// Components (pending voodo ImageList)
-export { default as ImageList } from "@mui/material/ImageList";
-export { default as ImageListItem } from "@mui/material/ImageListItem";
+// Icons (no voodo equivalent yet)
+export { default as FileUploadOutlined } from "@mui/icons-material/FileUploadOutlined";
