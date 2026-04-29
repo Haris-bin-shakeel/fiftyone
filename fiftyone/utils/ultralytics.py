@@ -707,7 +707,9 @@ class YOLOEVPGetItem(fout.GetItem):
     :class:`FiftyOneYOLOEVPModel` instances.
 
     Args:
-        transform (None): a preprocessing transform to apply
+        transform (None): a callable that maps a ``PIL.Image.Image`` to a
+            dict containing ``"img"`` (a ``torch.Tensor``) and ``"orig_img"``
+            (a ``numpy.ndarray``) keys
         field_mapping (None): the user-supplied dict mapping keys in
             :attr:`required_keys` to field names of their dataset
     """
