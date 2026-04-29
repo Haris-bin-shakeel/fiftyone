@@ -797,11 +797,15 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
                     orig_img,
                     visual_prompts=visual_prompts,
                     predictor=vp_predictor_cls,
+                    rect=orig_predictor.args.rect,
+                    retina_masks=orig_predictor.args.retina_masks,
+                    save=False,
+                    mode="predict",
+                    verbose=False,
+                    device=self._device,
                     conf=self.config.confidence_thresh
                     if self.config.confidence_thresh is not None
-                    else 0.25,
-                    device=self._device,
-                    verbose=False,
+                    else orig_predictor.args.conf,
                 )
 
                 names_map = dict(enumerate(classes))
