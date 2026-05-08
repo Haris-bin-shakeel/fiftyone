@@ -126,7 +126,7 @@ class TestYOLOEVPGetItem:
 
 
 class TestFiftyOneYOLOEVPCollate:
-    def test_collate_pops_prompt_and_stacks_images(self):
+    def test_collate_collects_prompts_and_stacks_images(self):
         import torch
 
         from fiftyone.utils.ultralytics import FiftyOneYOLOEVPModel
@@ -162,7 +162,8 @@ class TestFiftyOneYOLOEVPCollate:
         assert torch.equal(out["images"][0], img_a_t)
         assert torch.equal(out["images"][1], img_b_t)
 
-        assert all("prompt" not in item for item in batch)
+        assert batch[0]["prompt"] is prompt_a
+        assert batch[1]["prompt"] is prompt_b
 
     def test_collate_uses_none_for_missing_prompt_key(self):
         import torch

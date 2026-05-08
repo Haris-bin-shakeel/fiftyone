@@ -748,7 +748,7 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
 
     @staticmethod
     def collate_fn(batch):
-        prompts = [item.pop("prompt", None) for item in batch]
+        prompts = [item.get("prompt") for item in batch]
         orig_images = [img.get("orig_img") for img in batch]
         orig_shapes = [_get_image_dims(img)[::-1] for img in orig_images]
         images = torch.stack([img.get("img") for img in batch])
