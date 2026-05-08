@@ -36,9 +36,11 @@ import { ModalSample, modalLooker, modalSample, modalSelector } from "./modal";
 import { RelayEnvironmentKey } from "./relay";
 import {
   active3dSlices,
+  active3dSlicesToSampleMap,
   allNon3dSlices,
+  fo3dSlice,
   has3dSlice,
-  interaction3dSample,
+  hasFo3dSlice,
   is3dPinned,
   pinned3DSampleSlice,
 } from "./renderConfig3d.atoms";
@@ -407,11 +409,40 @@ export const groupHasSampleOnSlice = graphQLSelectorFamily<
   },
 });
 
+export const fo3dSample = selector({
+  key: "fo3dSample",
+  get: ({ get }) => {
+    if (!get(isGroup)) return get(modalSample);
+
+    if (get(isDynamicGroup) && !get(hasFo3dSlice)) {
+      return get(modalSample);
+    }
+
+    if (!get(hasFo3dSlice)) return null;
+
+    const sample = get(
+      groupSamples({
+        slices: [get(fo3dSlice)],
+        count: 1,
+        paginationData: false,
+      })
+    )[0];
+
+    return sample;
+  },
+});
+
 export const activeModalSample = selector({
   key: "activeModalSample",
   get: ({ get }) => {
     if (get(is3dPinned)) {
-      return get(interaction3dSample).sample;
+      if (get(hasFo3dSlice)) {
+        return get(fo3dSample).sample;
+      }
+
+      const slices = get(active3dSlices);
+      const key = slices.length === 1 ? slices[0] : get(pinned3DSampleSlice);
+      return get(active3dSlicesToSampleMap)[key]?.sample;
     }
 
     return get(modalSample).sample;
@@ -454,8 +485,5 @@ export const groupStatistics = atomFamily<"group" | "slice", boolean>({
  */
 export const groupView = selector<State.Stage[]>({
   key: "groupView",
-  get: ({ get }) =>
-    get(viewAtoms.view).filter(
-      (stage) => stage._cls !== viewAtoms.GROUP_BY_VIEW_STAGE
-    ),
+  get: ({ get }) => get(viewAtoms.view),
 });

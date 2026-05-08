@@ -9,6 +9,7 @@ import {
   modalSample,
   non3dSamples,
 } from "@fiftyone/state";
+import { is3d } from "@fiftyone/utilities";
 import { get } from "lodash";
 import React, { Suspense, useEffect } from "react";
 import {
@@ -16,7 +17,6 @@ import {
   useRecoilValue,
   useRecoilValueLoadable,
 } from "recoil";
-import { is3d } from "@fiftyone/utilities";
 
 export default ({
   children,

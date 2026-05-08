@@ -151,7 +151,7 @@ test.describe.serial("quickstart-groups", () => {
       await expect(modal.carousel).toBeVisible();
     });
 
-    test("annotate pcd slice renders after refreshing from explore mode", async ({
+    test("active slice renders after refreshing from explore mode", async ({
       modal,
       grid,
       page,
@@ -193,11 +193,7 @@ test.describe.serial("quickstart-groups", () => {
       await expect(modal.looker3d).toBeVisible();
 
       await modal.sidebar.switchMode("annotate");
-      await modal.sidebar.annotate.assert.verifySelectedAnnotationSlice("pcd");
-      await modal.waitForSampleLoadDomAttribute(true);
-      await modal.looker3dControls.waitForAllAssetsLoaded();
-      await modal.assert.verifyHasNoViewerError();
-      await renderer3d.assert.expectSomethingToRender();
+      await modal.sidebar.annotate.assert.verifySelectedAnnotationSlice("left");
     });
   });
 

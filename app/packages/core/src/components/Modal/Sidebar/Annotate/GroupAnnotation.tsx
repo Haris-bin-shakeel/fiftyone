@@ -2,14 +2,12 @@ import { Selector } from "@fiftyone/components";
 import * as fos from "@fiftyone/state";
 import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
-import { useRecoilValue, useSetRecoilState } from "recoil";
+import { useRecoilState } from "recoil";
 import styled from "styled-components";
 import { isEditing } from "./Edit";
 import { useApplyAnnotationSliceVisibility } from "./useApplyAnnotationSliceVisibility";
-import {
-  AnnotationSliceInfo,
-  useGroupAnnotationSlices,
-} from "./useGroupAnnotationSlices";
+import type { AnnotationSliceInfo } from "./useGroupAnnotationSlices";
+import { useGroupAnnotationSlices } from "./useGroupAnnotationSlices";
 
 const Container = styled.div`
   padding: 0 1rem 0.5rem 1.5rem;
@@ -62,9 +60,12 @@ const SliceSelector = ({
   slices: allSlices,
 }: GroupAnnotationProps & { slices: AnnotationSliceInfo[] }) => {
   const isEditing_ = useAtomValue(isEditing);
-  const setModalGroupSlice = useSetRecoilState(fos.modalGroupSlice);
+  const [modalGroupSlice, setModalGroupSlice] = useRecoilState(
+    fos.modalGroupSlice
+  );
   const applyVisibilityForSlice = useApplyAnnotationSliceVisibility();
-  const current = useRecoilValue(fos.modalGroupSlice);
+  const [preferredSlice, setPreferredSlice] =
+    fos.usePreferredGroupAnnotationSlice();
 
   const useSearch = useCallback(
     (search: string) => {
@@ -82,20 +83,22 @@ const SliceSelector = ({
     async (sliceName: string) => {
       const sliceInfo = allSlices.find((s) => s.name === sliceName);
       if (!sliceInfo?.isSupported || sliceInfo?.isMissing) {
-        return current;
+        return modalGroupSlice;
       }
 
-      setModalGroupSlice(sliceName);
       applyVisibilityForSlice(sliceName);
       onSliceSelected?.();
+      setModalGroupSlice(sliceName);
+      setPreferredSlice(sliceName);
       return sliceName;
     },
     [
       allSlices,
       applyVisibilityForSlice,
+      modalGroupSlice,
       onSliceSelected,
       setModalGroupSlice,
-      current,
+      setPreferredSlice,
     ]
   );
 
@@ -128,7 +131,7 @@ const SliceSelector = ({
         overflow={true}
         placeholder="Select slice..."
         useSearch={useSearch}
-        value={current}
+        value={modalGroupSlice ?? preferredSlice}
         cy="annotation-slice"
       />
     </Container>
@@ -142,10 +145,10 @@ interface GroupAnnotationProps {
 export default function GroupAnnotation({
   onSliceSelected,
 }: GroupAnnotationProps) {
-  const slices = useGroupAnnotationSlices();
+  const { resolved: slices } = useGroupAnnotationSlices();
 
   if (slices === "loading") {
-    return;
+    return null;
   }
 
   return <SliceSelector onSliceSelected={onSliceSelected} slices={slices} />;

@@ -1,14 +1,18 @@
-import { Schema } from "@fiftyone/utilities";
-import { useAtomValue, useSetAtom } from "jotai";
+import type { Schema } from "@fiftyone/utilities";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useRecoilState, useRecoilValue, useRecoilValueLoadable } from "recoil";
 import { ModalMode, modalMode } from "../jotai";
+import { preferredGroupAnnotationSliceAtom } from "../jotai/group-annotation";
+import type { ModalViewportState } from "../jotai/modal";
+import { __unsafeModalViewportAtom } from "../jotai/modal";
+import type { ModalSample } from "../recoil";
 import {
-  ModalSample,
   State,
   activeFields,
   currentSampleId,
   fieldSchema,
+  lookerOptions,
   modalSample,
   selectedMediaField,
 } from "../recoil";
@@ -92,12 +96,39 @@ export const useSelectedMediaFieldModal = () =>
   useRecoilValue(selectedMediaField(true));
 
 /**
+ * Get and set the preferred annotation slice for grouped datasets.
+ * Returns [preferredSlice, setPreferredSlice].
+ */
+export const usePreferredGroupAnnotationSlice = () =>
+  useAtom(preferredGroupAnnotationSliceAtom);
+
+/**
  * Gets the current sample ID.
  */
 export const useCurrentSampleId = () => {
   const loadable = useRecoilValueLoadable(currentSampleId);
 
   return loadable.state === "hasValue" ? loadable.contents : null;
+};
+
+/**
+ * Gets the saved modal viewport (zoom/pan) state.
+ */
+export const useModalViewport = (): ModalViewportState | null =>
+  useAtomValue(__unsafeModalViewportAtom);
+
+/**
+ * Setter for persisting the modal viewport (zoom/pan) state.
+ */
+export const useSaveModalViewport = () => useSetAtom(__unsafeModalViewportAtom);
+
+/**
+ * Gets the looker options for the modal.
+ *
+ * @param withFilter - Whether to apply frontend label filtering. Defaults to `false`.
+ */
+export const useModalLookerOptions = (withFilter = false) => {
+  return useRecoilValue(lookerOptions({ modal: true, withFilter }));
 };
 
 /**

@@ -12,33 +12,32 @@ import {
   useSetRecoilState,
 } from "recoil";
 import { useApplyAnnotationSliceVisibility } from "./useApplyAnnotationSliceVisibility";
-import {
-  resolveSlices,
-  useGroupAnnotationSlices,
-} from "./useGroupAnnotationSlices";
+import { useGroupAnnotationSlices } from "./useGroupAnnotationSlices";
 
 const useApplySlice = () => {
-  const allSlices = useGroupAnnotationSlices();
-  const current = useRecoilValue(fos.modalGroupSlice);
+  const { request } = useGroupAnnotationSlices();
+  const modalGroupSlice = useRecoilValue(fos.modalGroupSlice);
+  const [preferredSlice] = fos.usePreferredGroupAnnotationSlice();
 
   const resolveSlice = useRecoilCallback(
-    (ctx) => async () => {
-      const currentSlices = await ctx.snapshot.getPromise(
-        fos.currentGroupSliceNames
-      );
-      const sliceInfo = await ctx.snapshot.getPromise(fos.groupMediaTypes);
-      const slices = resolveSlices(currentSlices, sliceInfo);
-      const available = slices.filter(
-        ({ isSupported, isMissing }) => isSupported && !isMissing
-      );
+    () => async () => {
+      const allSlices = await request();
+      const available = allSlices
+        .filter(({ isMissing, isSupported }) => isSupported && !isMissing)
+        .map(({ name }) => name);
 
-      if (available.findIndex(({ name }) => name === current) === -1) {
-        return available[0]?.name ?? null;
+      if (preferredSlice && available.includes(preferredSlice)) {
+        alert(preferredSlice);
+        return preferredSlice;
       }
 
-      return current;
+      if (modalGroupSlice && available.includes(modalGroupSlice)) {
+        return modalGroupSlice;
+      }
+
+      return available.length > 0 ? available[0] : null;
     },
-    [current, allSlices]
+    [modalGroupSlice, preferredSlice, request]
   );
 
   const setModalGroupSlice = useSetRecoilState(fos.modalGroupSlice);

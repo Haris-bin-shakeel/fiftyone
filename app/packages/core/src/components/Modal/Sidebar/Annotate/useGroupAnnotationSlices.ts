@@ -1,7 +1,11 @@
 import { currentGroupSliceNames, groupMediaTypes } from "@fiftyone/state";
 import { is3d, isAnnotationSupported } from "@fiftyone/utilities";
 import { useMemo } from "react";
-import { useRecoilValue, useRecoilValueLoadable } from "recoil";
+import {
+  useRecoilCallback,
+  useRecoilValue,
+  useRecoilValueLoadable,
+} from "recoil";
 
 export interface AnnotationSliceInfo {
   /** Slice name. */
@@ -38,11 +42,14 @@ export const resolveSlices = (
     });
 };
 
-export function useGroupAnnotationSlices(): AnnotationSliceInfo[] | "loading" {
+export function useGroupAnnotationSlices(): {
+  resolved: AnnotationSliceInfo[] | "loading";
+  request: () => Promise<AnnotationSliceInfo[]>;
+} {
   const currentSlices = useRecoilValueLoadable(currentGroupSliceNames);
   const sliceInfo = useRecoilValue(groupMediaTypes);
 
-  return useMemo(() => {
+  const resolved = useMemo(() => {
     if (currentSlices.state === "loading") {
       return "loading";
     }
@@ -57,4 +64,16 @@ export function useGroupAnnotationSlices(): AnnotationSliceInfo[] | "loading" {
 
     return resolveSlices(currentSlices.contents, sliceInfo);
   }, [currentSlices, sliceInfo]);
+
+  return {
+    resolved,
+    request: useRecoilCallback(
+      ({ snapshot }) =>
+        async () => {
+          const slices = await snapshot.getPromise(currentGroupSliceNames);
+          return resolveSlices(slices, sliceInfo);
+        },
+      [sliceInfo]
+    ),
+  };
 }
