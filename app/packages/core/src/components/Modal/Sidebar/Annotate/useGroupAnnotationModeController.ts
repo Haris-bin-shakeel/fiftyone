@@ -27,7 +27,6 @@ const useApplySlice = () => {
         .map(({ name }) => name);
 
       if (preferredSlice && available.includes(preferredSlice)) {
-        alert(preferredSlice);
         return preferredSlice;
       }
 

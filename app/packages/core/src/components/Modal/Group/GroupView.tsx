@@ -5,7 +5,6 @@ import { groupId, useBrowserStorage } from "@fiftyone/state";
 import { Resizable } from "re-resizable";
 import { useEffect, useMemo, useRef } from "react";
 import { useRecoilValue } from "recoil";
-import EnsureGroupSample from "./EnsureGroupSample";
 import { groupContainer, mainGroup } from "./Group.module.css";
 import { GroupCarousel } from "./GroupCarousel";
 import { GroupImageVideoSample } from "./GroupImageVideoSample";
@@ -92,11 +91,7 @@ export const GroupView = () => {
                 fullHeight={!isMainVisible}
               />
             )}
-            {isMainVisible && (
-              <EnsureGroupSample>
-                <GroupImageVideoSample />
-              </EnsureGroupSample>
-            )}
+            {isMainVisible && <GroupImageVideoSample />}
             {shouldRender3DBelow && <GroupSample3d />}
           </Resizable>
         )}

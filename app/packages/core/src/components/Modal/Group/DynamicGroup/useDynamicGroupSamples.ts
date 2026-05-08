@@ -30,6 +30,7 @@ export const useDynamicGroupSamples = () => {
       if (shouldRenderImavid) {
         return null;
       }
+      alert(dynamicGroup);
 
       return loadQuery<foq.paginateSamplesQuery>(
         environment,

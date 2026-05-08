@@ -1,6 +1,6 @@
+import type { ViewportState } from "@fiftyone/lighter";
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import type { ViewportState } from "@fiftyone/lighter";
 import { createDatasetKeyedStorage, parseDatasetNameFromUrl } from "./utils";
 
 export const ANNOTATE = "annotate";

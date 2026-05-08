@@ -99,8 +99,8 @@ export * from "./jotai-store";
 export {
   ANNOTATE,
   EXPLORE,
-  ModalMode,
   modalMode,
+  ModalMode,
   type ModalViewportState,
 } from "./modal";
 export { modalBridge } from "./modalBridge";

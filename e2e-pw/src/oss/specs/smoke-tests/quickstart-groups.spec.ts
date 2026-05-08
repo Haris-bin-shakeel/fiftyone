@@ -193,7 +193,7 @@ test.describe.serial("quickstart-groups", () => {
       await expect(modal.looker3d).toBeVisible();
 
       await modal.sidebar.switchMode("annotate");
-      await modal.sidebar.annotate.assert.verifySelectedAnnotationSlice("left");
+      await modal.sidebar.annotate.assert.verifySelectedAnnotationSlice("pcd");
     });
   });
 

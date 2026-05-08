@@ -130,7 +130,20 @@ def get_view(
             view = dataset.view()
 
         if dynamic_group is not None:
+            mongo = None
+            for stage in view._stages:
+                if isinstance(stage, fosg.GroupBy):
+                    mongo = fosg.Mongo(
+                        [
+                            {
+                                "$addFields": {
+                                    "_group": stage._get_group_expr(view)[0]
+                                }
+                            }
+                        ]
+                    )
             view = view.get_dynamic_group(dynamic_group)
+            view.add_stage(mongo)
 
         media_types = None
         if sample_filter is not None:

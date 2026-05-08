@@ -12,6 +12,7 @@ import fnmatch
 from datetime import datetime
 from typing import Any, Optional
 
+import fiftyone.core.annotation.constants as foac
 import fiftyone.core.utils as fou
 from fiftyone.core.annotation.attributes import (
     AttributeSpec,
@@ -91,6 +92,7 @@ class Ontology(abc.ABC):
     @require_feature("VFF_ONTOLOGY_CA")
     def save(self) -> None:
         """Saves this ontology to the database."""
+        self._validate()
         if self._doc is None:
             self._doc = OntologyDocument(
                 name=self.name,
@@ -142,6 +144,12 @@ class Ontology(abc.ABC):
         cloned._doc = None
         cloned.save()
         return cloned
+
+    def _validate(self) -> None:
+        """Hook called by :meth:`save` to validate the ontology before
+        persisting. Default is a no-op; subclasses override to call
+        their type-specific validator.
+        """
 
     def _get_root(self) -> Any:
         """Returns the serialized root data for storage.
@@ -243,6 +251,16 @@ class AnnotationOntology(Ontology):
         super().__init__(name=name, description=description)
         self.taxonomies = taxonomies or []
         self.attributes = attributes or []
+
+    def _validate(self) -> None:
+        # Lazy import — ``ontology_validation`` imports
+        # ``AnnotationOntology`` for type hints, so a top-level import
+        # here would be circular.
+        from fiftyone.core.ontology_validation import (
+            validate_annotation_ontology,
+        )
+
+        validate_annotation_ontology(self)
 
     def _get_root(self) -> dict:
         return {
@@ -389,3 +407,32 @@ def delete_ontology(name: str, force: bool = False) -> None:
     count = _objects_by_slug(name).delete()
     if count == 0:
         raise ValueError(f"Ontology '{name}' not found")
+
+
+def apply_ontology(
+    label_schemas: dict, field_name: str, ontology_name: Optional[str]
+) -> dict:
+    """Returns a new ``label_schemas`` dict with an annotation ontology
+    attached to (or removed from) the given field.
+
+    Pure function — does not mutate the input. Apply the result via
+    :meth:`fiftyone.core.dataset.Dataset.set_label_schemas` to persist.
+
+    Args:
+        label_schemas: a label schemas dict
+        field_name: the field to attach the ontology to
+        ontology_name: name of an annotation ontology to attach, or ``None``
+            to unset an existing reference
+
+    Returns:
+        a new label schemas dict
+    """
+    label_schemas = dict(label_schemas)
+    field_schema = dict(label_schemas.get(field_name, {}))
+    if ontology_name is None:
+        # idempotent: no-op if there is no existing reference to unset
+        field_schema.pop(foac.APPLIED_ONTOLOGY, None)
+    else:
+        field_schema[foac.APPLIED_ONTOLOGY] = ontology_name
+    label_schemas[field_name] = field_schema
+    return label_schemas
