@@ -816,7 +816,7 @@ class TestGetYOLOEVPPredictor:
         assert isinstance(cls, type)
         assert cls.__name__ == "YOLOEVPSegPredictor"
 
-    def test_raises_import_error_with_attribute_error_cause(self, monkeypatch):
+    def test_raises_attribute_error_when_missing(self, monkeypatch):
         from fiftyone.utils import ultralytics as fu
 
         class _BrokenYoloe:
@@ -825,7 +825,7 @@ class TestGetYOLOEVPPredictor:
 
         monkeypatch.setattr(fu, "_yoloe", _BrokenYoloe())
 
-        with pytest.raises(ImportError, match="ultralytics>=8.4.0") as exc:
+        with pytest.raises(AttributeError, match="ultralytics>=8.4.0") as exc:
             fu._get_yoloe_vp_predictor()
 
         # `from e` chains the underlying AttributeError as __cause__.

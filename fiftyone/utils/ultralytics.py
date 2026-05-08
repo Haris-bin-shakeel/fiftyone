@@ -1210,7 +1210,7 @@ def _detections_to_visual_prompts(detections, img_width, img_height):
 def _get_yoloe_vp_predictor():
     try:
         return _yoloe.YOLOEVPSegPredictor
-    except (ImportError, AttributeError) as e:
-        raise ImportError(
+    except AttributeError as e:
+        raise AttributeError(
             "Visual prompts require ultralytics>=8.4.0 with YOLOE support"
         ) from e
