@@ -95,17 +95,22 @@ class TestYOLOEVPGetItem:
         with pytest.raises(TypeError, match="requires a transform"):
             item({"filepath": str(path), "prompt_field": fol.Detections()})
 
-    def test_call_loads_image_force_rgb_and_attaches_prompt(self, tmp_path):
+    def test_call_loads_image_force_rgb_and_builds_visual_prompts(
+        self, tmp_path
+    ):
         from PIL import Image
 
         from fiftyone.utils.ultralytics import YOLOEVPGetItem
 
         # "L" source verifies the loader forces RGB before the transform.
         path = tmp_path / "gray.png"
-        Image.new("L", (4, 4), color=128).save(path)
+        Image.new("L", (20, 10), color=128).save(path)
 
         prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
+            detections=[
+                fol.Detection(label="dog", bounding_box=[0.0, 0.0, 0.5, 0.5]),
+                fol.Detection(label="cat", bounding_box=[0.5, 0.5, 0.5, 0.5]),
+            ]
         )
 
         captured: dict[str, Any] = {}
@@ -118,21 +123,56 @@ class TestYOLOEVPGetItem:
         item = YOLOEVPGetItem(transform=fake_transform)
         result = item({"filepath": str(path), "prompt_field": prompt})
 
-        assert captured == {"mode": "RGB", "size": (4, 4)}
-        assert set(result.keys()) == {"img", "orig_img", "prompt"}
+        assert captured == {"mode": "RGB", "size": (20, 10)}
+        assert set(result.keys()) == {
+            "img",
+            "orig_img",
+            "visual_prompts",
+            "vp_classes",
+        }
         assert result["img"] == "TENSOR"
         assert result["orig_img"] == "ARRAY"
-        assert result["prompt"] is prompt
+        assert result["vp_classes"] == ["dog", "cat"]
+        np.testing.assert_array_equal(
+            result["visual_prompts"]["bboxes"],
+            np.array([[0.0, 0.0, 10.0, 5.0], [10.0, 5.0, 20.0, 10.0]]),
+        )
+        np.testing.assert_array_equal(
+            result["visual_prompts"]["cls"], np.array([0, 1])
+        )
+
+    @pytest.mark.parametrize(
+        "prompt", [None, fol.Detections()], ids=("none", "empty")
+    )
+    def test_call_emits_none_visual_prompts_for_missing_or_empty_prompt(
+        self, prompt, tmp_path
+    ):
+        from PIL import Image
+
+        from fiftyone.utils.ultralytics import YOLOEVPGetItem
+
+        path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4)).save(path)
+
+        item = YOLOEVPGetItem(
+            transform=lambda img: {"img": "TENSOR", "orig_img": "ARRAY"}
+        )
+        result = item({"filepath": str(path), "prompt_field": prompt})
+
+        assert result["visual_prompts"] is None
+        assert result["vp_classes"] is None
 
 
 class TestFiftyOneYOLOEVPCollate:
-    def test_collate_collects_prompts_and_stacks_images(self):
+    def test_collate_collects_visual_prompts_and_stacks_images(self):
         import torch
 
         from fiftyone.utils.ultralytics import FiftyOneYOLOEVPModel
 
-        prompt_a = fol.Detections()
-        prompt_b = None
+        vp_a = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
+        classes_a = ["dog"]
+        vp_b = None
+        classes_b = None
 
         img_a_t = torch.full((3, 5, 7), 1.0)
         img_b_t = torch.full((3, 5, 7), 2.0)
@@ -140,8 +180,18 @@ class TestFiftyOneYOLOEVPCollate:
         img_b_o = np.zeros((5, 7, 3), dtype=np.uint8)
 
         batch = [
-            {"img": img_a_t, "orig_img": img_a_o, "prompt": prompt_a},
-            {"img": img_b_t, "orig_img": img_b_o, "prompt": prompt_b},
+            {
+                "img": img_a_t,
+                "orig_img": img_a_o,
+                "visual_prompts": vp_a,
+                "vp_classes": classes_a,
+            },
+            {
+                "img": img_b_t,
+                "orig_img": img_b_o,
+                "visual_prompts": vp_b,
+                "vp_classes": classes_b,
+            },
         ]
 
         out = FiftyOneYOLOEVPModel.collate_fn(batch)
@@ -150,9 +200,11 @@ class TestFiftyOneYOLOEVPCollate:
             "orig_imgs",
             "images",
             "orig_shapes",
-            "prompts",
+            "visual_prompts",
+            "vp_classes",
         }
-        assert out["prompts"] == [prompt_a, prompt_b]
+        assert out["visual_prompts"] == [vp_a, vp_b]
+        assert out["vp_classes"] == [classes_a, classes_b]
         assert out["orig_imgs"][0] is img_a_o
         assert out["orig_imgs"][1] is img_b_o
         assert out["orig_shapes"] == [(7, 5), (7, 5)]
@@ -162,10 +214,7 @@ class TestFiftyOneYOLOEVPCollate:
         assert torch.equal(out["images"][0], img_a_t)
         assert torch.equal(out["images"][1], img_b_t)
 
-        assert batch[0]["prompt"] is prompt_a
-        assert batch[1]["prompt"] is prompt_b
-
-    def test_collate_uses_none_for_missing_prompt_key(self):
+    def test_collate_uses_none_for_missing_keys(self):
         import torch
 
         from fiftyone.utils.ultralytics import FiftyOneYOLOEVPModel
@@ -179,7 +228,8 @@ class TestFiftyOneYOLOEVPCollate:
 
         out = FiftyOneYOLOEVPModel.collate_fn(batch)
 
-        assert out["prompts"] == [None]
+        assert out["visual_prompts"] == [None]
+        assert out["vp_classes"] == [None]
         assert out["images"].shape == (1, 3, 4, 4)
 
 
@@ -190,17 +240,17 @@ class TestFiftyOneYOLOEVPDispatch:
 
         return FiftyOneYOLOEVPModel.__new__(FiftyOneYOLOEVPModel)
 
-    def test_dispatch_with_prompts_calls_visual_prompts(self, monkeypatch):
+    def test_dispatch_with_visual_prompts_calls_vp_path(self, monkeypatch):
         from fiftyone.utils import ultralytics as fu
 
         model = self._bare_model()
 
         captured: dict[str, Any] = {}
 
-        def fake_vp(orig_imgs, width_height, prompts):
+        def fake_vp(orig_imgs, visual_prompts, vp_classes):
             captured["orig_imgs"] = orig_imgs
-            captured["width_height"] = width_height
-            captured["prompts"] = prompts
+            captured["visual_prompts"] = visual_prompts
+            captured["vp_classes"] = vp_classes
             return ["VP_RESULT"]
 
         model._predict_all_visual_prompts = fake_vp
@@ -209,55 +259,54 @@ class TestFiftyOneYOLOEVPDispatch:
             fu.FiftyOneYOLOModel,
             "_predict_all",
             lambda self, imgs: pytest.fail(
-                "super()._predict_all called when prompts present"
+                "super()._predict_all called when visual_prompts present"
             ),
         )
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
-
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
         batch = {
             "orig_imgs": ["A"],
             "images": "stacked-tensor",
             "orig_shapes": [(7, 5)],
-            "prompts": [prompt],
+            "visual_prompts": [vp],
+            "vp_classes": [["dog"]],
         }
 
         out = model._predict_all(batch)
 
         assert out == ["VP_RESULT"]
-        assert captured == {
-            "orig_imgs": ["A"],
-            "width_height": [(7, 5)],
-            "prompts": [prompt],
-        }
+        assert captured["orig_imgs"] == ["A"]
+        assert captured["visual_prompts"] == [vp]
+        assert captured["vp_classes"] == [["dog"]]
 
-    def test_dispatch_with_mixed_none_and_non_none_prompts_uses_vp_path(self):
+    def test_dispatch_with_mixed_visual_prompts_uses_vp_path(self):
         model = self._bare_model()
 
-        prompts_seen = []
+        seen = {}
 
-        def fake_vp(orig_imgs, width_height, prompts):
-            prompts_seen.extend(prompts)
+        def fake_vp(orig_imgs, visual_prompts, vp_classes):
+            seen["visual_prompts"] = visual_prompts
+            seen["vp_classes"] = vp_classes
             return ["MIXED"]
 
         model._predict_all_visual_prompts = fake_vp
 
-        prompt = fol.Detections()
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
         batch = {
             "orig_imgs": ["A", "B", "C"],
             "images": "T",
             "orig_shapes": [(1, 1), (1, 1), (1, 1)],
-            "prompts": [None, prompt, None],
+            "visual_prompts": [None, vp, None],
+            "vp_classes": [None, ["dog"], None],
         }
 
         out = model._predict_all(batch)
 
         assert out == ["MIXED"]
-        assert prompts_seen == [None, prompt, None]
+        assert seen["visual_prompts"] == [None, vp, None]
+        assert seen["vp_classes"] == [None, ["dog"], None]
 
-    def test_dispatch_with_all_none_prompts_falls_through_to_super(
+    def test_dispatch_with_all_none_visual_prompts_falls_through_to_super(
         self, monkeypatch
     ):
         from fiftyone.utils import ultralytics as fu
@@ -277,14 +326,15 @@ class TestFiftyOneYOLOEVPDispatch:
         )
 
         model._predict_all_visual_prompts = lambda *a, **kw: pytest.fail(
-            "_predict_all_visual_prompts called for all-None prompts"
+            "_predict_all_visual_prompts called for all-None visual_prompts"
         )
 
         batch = {
             "orig_imgs": ["A"],
             "images": "T",
             "orig_shapes": [(1, 1)],
-            "prompts": [None],
+            "visual_prompts": [None],
+            "vp_classes": [None],
         }
 
         out = model._predict_all(batch)
@@ -292,7 +342,7 @@ class TestFiftyOneYOLOEVPDispatch:
         assert out == ["SUPER"]
         assert super_calls == [batch]
 
-    def test_dispatch_with_empty_prompts_falls_through_to_super(
+    def test_dispatch_with_empty_visual_prompts_falls_through_to_super(
         self, monkeypatch
     ):
         from fiftyone.utils import ultralytics as fu
@@ -307,14 +357,15 @@ class TestFiftyOneYOLOEVPDispatch:
         )
 
         model._predict_all_visual_prompts = lambda *a, **kw: pytest.fail(
-            "_predict_all_visual_prompts called for empty prompts list"
+            "_predict_all_visual_prompts called for empty visual_prompts list"
         )
 
         batch = {
             "orig_imgs": [],
             "images": "T",
             "orig_shapes": [],
-            "prompts": [],
+            "visual_prompts": [],
+            "vp_classes": [],
         }
 
         assert model._predict_all(batch) == ["SUPER"]
@@ -379,7 +430,7 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         )
         return model
 
-    def test_visual_prompts_built_per_image_with_full_predict_kwargs(
+    def test_visual_prompts_consumed_per_image_with_full_predict_kwargs(
         self, monkeypatch
     ):
         from fiftyone.utils import ultralytics as fu
@@ -429,22 +480,21 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             predictor_default_conf=0.31,
         )
 
-        prompt_a = fol.Detections(
-            detections=[
-                fol.Detection(label="dog", bounding_box=[0.0, 0.0, 0.5, 0.5]),
-                fol.Detection(label="cat", bounding_box=[0.5, 0.5, 0.5, 0.5]),
-            ]
-        )
-        prompt_b = fol.Detections(
-            detections=[
-                fol.Detection(label="bird", bounding_box=[0.0, 0.0, 1.0, 1.0])
-            ]
-        )
+        vp_a = {
+            "bboxes": np.array(
+                [[0.0, 0.0, 10.0, 5.0], [10.0, 5.0, 20.0, 10.0]]
+            ),
+            "cls": np.array([0, 1]),
+        }
+        vp_b = {
+            "bboxes": np.array([[0.0, 0.0, 4.0, 4.0]]),
+            "cls": np.array([0]),
+        }
 
         labels = model._predict_all_visual_prompts(
             orig_images=["img-A", "img-B"],
-            width_height=[(20, 10), (4, 4)],
-            prompts=[prompt_a, prompt_b],
+            visual_prompts_list=[vp_a, vp_b],
+            vp_classes_list=[["dog", "cat"], ["bird"]],
         )
 
         assert len(captured_calls) == 2
@@ -462,20 +512,8 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             assert call["retina_masks"] is False
             assert call["conf"] == 0.31
 
-        np.testing.assert_array_equal(
-            captured_calls[0]["visual_prompts"]["bboxes"],
-            np.array([[0.0, 0.0, 10.0, 5.0], [10.0, 5.0, 20.0, 10.0]]),
-        )
-        np.testing.assert_array_equal(
-            captured_calls[0]["visual_prompts"]["cls"], np.array([0, 1])
-        )
-        np.testing.assert_array_equal(
-            captured_calls[1]["visual_prompts"]["bboxes"],
-            np.array([[0.0, 0.0, 4.0, 4.0]]),
-        )
-        np.testing.assert_array_equal(
-            captured_calls[1]["visual_prompts"]["cls"], np.array([0])
-        )
+        assert captured_calls[0]["visual_prompts"] is vp_a
+        assert captured_calls[1]["visual_prompts"] is vp_b
 
         assert result_a.names == {0: "dog", 1: "cat"}
         assert result_b.names == {0: "bird"}
@@ -521,13 +559,9 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             filter_classes=["dog", "cat"],
         )
 
-        prompt = fol.Detections(
-            detections=[
-                fol.Detection(label="dog", bounding_box=[0, 0, 0.5, 0.5])
-            ]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
-        model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+        model._predict_all_visual_prompts(["A"], [vp], [["dog"]])
 
         assert captured_to_instances == [
             {"confidence_thresh": 0.42, "classes": ["dog", "cat"]}
@@ -552,12 +586,10 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         model_ref = model
         original_predictor = model._model.predictor
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
         model._predict_all_visual_prompts(
-            ["A", "B"], [(4, 4), (4, 4)], [prompt, prompt]
+            ["A", "B"], [vp, vp], [["x"], ["x"]]
         )
 
         assert model._model.predictor is original_predictor
@@ -577,16 +609,14 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         model_ref = model
         original_predictor = model._model.predictor
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
         with pytest.raises(RuntimeError, match="ultralytics blew up"):
-            model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+            model._predict_all_visual_prompts(["A"], [vp], [["x"]])
 
         assert model._model.predictor is original_predictor
 
-    def test_empty_or_missing_prompts_yield_empty_detections(self, monkeypatch):
+    def test_none_visual_prompts_yield_empty_detections(self, monkeypatch):
         from fiftyone.utils import ultralytics as fu
 
         to_instances_calls = []
@@ -615,16 +645,15 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         model = self._make_model(monkeypatch, predict=fake_predict)
 
-        prompt_real = fol.Detections(
-            detections=[
-                fol.Detection(label="dog", bounding_box=[0, 0, 0.5, 0.5])
-            ]
-        )
+        vp_real = {
+            "bboxes": np.array([[0.0, 0.0, 2.0, 2.0]]),
+            "cls": np.array([0]),
+        }
 
         labels = model._predict_all_visual_prompts(
-            orig_images=["img-empty", "img-none", "img-real"],
-            width_height=[(4, 4), (4, 4), (4, 4)],
-            prompts=[fol.Detections(), None, prompt_real],
+            orig_images=["img-none-1", "img-none-2", "img-real"],
+            visual_prompts_list=[None, None, vp_real],
+            vp_classes_list=[None, None, ["dog"]],
         )
 
         assert predict_calls == ["img-real"]
@@ -660,11 +689,9 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             predictor_default_conf=0.25,
         )
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
-        model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+        model._predict_all_visual_prompts(["A"], [vp], [["x"]])
 
         assert captured["conf"] == 0.42
 
@@ -695,11 +722,9 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             predictor_default_conf=0.25,
         )
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
-        model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+        model._predict_all_visual_prompts(["A"], [vp], [["x"]])
 
         assert captured["conf"] == 0.0
 
@@ -728,11 +753,9 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             predictor_default_conf=0.31,
         )
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
-        model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+        model._predict_all_visual_prompts(["A"], [vp], [["x"]])
 
         assert captured["conf"] == 0.31
 
@@ -759,14 +782,12 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         model = self._make_model(monkeypatch, predict=fake_predict)
 
-        prompt = fol.Detections(
-            detections=[
-                fol.Detection(label="dog", bounding_box=[0.0, 0.0, 0.5, 0.5]),
-                fol.Detection(label="cat", bounding_box=[0.5, 0.5, 0.5, 0.5]),
-            ]
-        )
+        vp = {
+            "bboxes": np.array([[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]]),
+            "cls": np.array([0, 1]),
+        }
 
-        model._predict_all_visual_prompts(["A"], [(4, 4)], [prompt])
+        model._predict_all_visual_prompts(["A"], [vp], [["dog", "cat"]])
 
         expected = {0: "dog", 1: "cat"}
         assert result_first.names == expected
@@ -792,16 +813,14 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         model = self._make_model(monkeypatch, predict=fake_predict)
 
-        prompt = fol.Detections(
-            detections=[fol.Detection(label="x", bounding_box=[0, 0, 1, 1])]
-        )
+        vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
         original_predictor = model._model.predictor
 
         with pytest.raises(ValueError):
             model._predict_all_visual_prompts(
                 orig_images=["A", "B", "C"],
-                width_height=[(4, 4), (4, 4)],
-                prompts=[prompt, prompt],
+                visual_prompts_list=[vp, vp],
+                vp_classes_list=[["x"], ["x"]],
             )
 
         assert predict_calls == ["A", "B"]

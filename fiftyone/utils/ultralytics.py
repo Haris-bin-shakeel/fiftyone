@@ -725,7 +725,21 @@ class YOLOEVPGetItem(fout.GetItem):
                 "YOLOEVPGetItem requires a transform to produce tensors"
             )
         result = self._transform(img)
-        result["prompt"] = d["prompt_field"]
+
+        prompt = d["prompt_field"]
+        if prompt is not None and prompt.detections:
+            bboxes, cls_indices, classes = _detections_to_visual_prompts(
+                prompt, img.width, img.height
+            )
+            result["visual_prompts"] = {
+                "bboxes": np.array(bboxes),
+                "cls": np.array(cls_indices),
+            }
+            result["vp_classes"] = classes
+        else:
+            result["visual_prompts"] = None
+            result["vp_classes"] = None
+
         return result
 
     @property
@@ -748,7 +762,8 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
 
     @staticmethod
     def collate_fn(batch):
-        prompts = [item.get("prompt") for item in batch]
+        visual_prompts = [item.get("visual_prompts") for item in batch]
+        vp_classes = [item.get("vp_classes") for item in batch]
         orig_images = [img.get("orig_img") for img in batch]
         orig_shapes = [_get_image_dims(img)[::-1] for img in orig_images]
         images = torch.stack([img.get("img") for img in batch])
@@ -756,19 +771,26 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
             "orig_imgs": orig_images,
             "images": images,
             "orig_shapes": orig_shapes,
-            "prompts": prompts,
+            "visual_prompts": visual_prompts,
+            "vp_classes": vp_classes,
         }
 
     def _predict_all(self, imgs):
-        prompts = imgs.get("prompts") if isinstance(imgs, dict) else None
-        if prompts and any(p is not None for p in prompts):
+        visual_prompts = (
+            imgs.get("visual_prompts") if isinstance(imgs, dict) else None
+        )
+        if visual_prompts and any(vp is not None for vp in visual_prompts):
             return self._predict_all_visual_prompts(
-                imgs["orig_imgs"], imgs["orig_shapes"], prompts
+                imgs["orig_imgs"],
+                imgs["visual_prompts"],
+                imgs["vp_classes"],
             )
 
         return super()._predict_all(imgs)
 
-    def _predict_all_visual_prompts(self, orig_images, width_height, prompts):
+    def _predict_all_visual_prompts(
+        self, orig_images, visual_prompts_list, vp_classes_list
+    ):
         vp_predictor_cls = _get_yoloe_vp_predictor()
         orig_predictor = self._model.predictor
 
@@ -776,22 +798,15 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
         try:
             # YOLOEVPSegPredictor requires per-image visual_prompts dicts,
             # so batched prediction is not supported here.
-            for orig_img, wh, prompt in zip(
-                orig_images, width_height, prompts, strict=True
+            for orig_img, visual_prompts, classes in zip(
+                orig_images,
+                visual_prompts_list,
+                vp_classes_list,
+                strict=True,
             ):
-                if not prompt or not prompt.detections:
+                if visual_prompts is None:
                     all_labels.append(fol.Detections())
                     continue
-
-                w, h = wh
-                bboxes, cls_indices, classes = _detections_to_visual_prompts(
-                    prompt, w, h
-                )
-
-                visual_prompts = {
-                    "bboxes": np.array(bboxes),
-                    "cls": np.array(cls_indices),
-                }
 
                 results = self._model.predict(
                     orig_img,
