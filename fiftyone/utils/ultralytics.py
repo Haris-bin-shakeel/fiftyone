@@ -826,12 +826,10 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
                     else default_conf,
                 )
 
-                names_map = dict(enumerate(classes))
-                for r in results:
-                    r.names = names_map
-
-                labels = to_instances(
+                labels = self._output_processor(
                     results,
+                    None,
+                    vp_classes=classes,
                     confidence_thresh=self.config.confidence_thresh,
                     classes=self.config.filter_classes,
                 )
@@ -1156,6 +1154,45 @@ class UltralyticsSegmentationOutputProcessor(
             results,
             confidence_thresh=confidence_thresh,
             classes=classes,
+        )
+
+
+class YOLOEVPSegmentationOutputProcessor(
+    UltralyticsSegmentationOutputProcessor
+):
+    """Output processor for YOLOE visual-prompt segmentation.
+
+    The VP code path produces ultralytics ``Result`` objects directly (no
+    raw-tensor postprocess step). When ``vp_classes`` is provided, this
+    processor remaps each ``Result.names`` to the prompt's first-seen unique
+    class names before delegating to ``to_instances``. When ``vp_classes`` is
+    not provided (i.e., the prompt-free path through the same model), this
+    processor falls through to the standard segmentation behavior.
+    """
+
+    def __call__(
+        self,
+        output,
+        frame_size,
+        confidence_thresh=None,
+        classes=None,
+        vp_classes=None,
+        **kwargs,
+    ):
+        if vp_classes is not None:
+            names_map = dict(enumerate(vp_classes))
+            for r in output:
+                r.names = names_map
+            return self._parse_output(
+                output, frame_size, confidence_thresh, classes
+            )
+
+        return super().__call__(
+            output,
+            frame_size,
+            confidence_thresh=confidence_thresh,
+            classes=classes,
+            **kwargs,
         )
 
 

@@ -436,13 +436,47 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             (config, m)
         )
 
+        # Recording mock for self._output_processor. Captures every call and
+        # returns a list of fol.Detections labelled "out-<first vp_class>" so
+        # tests can verify both invocation and value flow.
+        processor_calls = []
+
+        def fake_output_processor(
+            output,
+            frame_size,
+            vp_classes=None,
+            confidence_thresh=None,
+            classes=None,
+            **kwargs,
+        ):
+            processor_calls.append(
+                {
+                    "output": output,
+                    "frame_size": frame_size,
+                    "vp_classes": vp_classes,
+                    "confidence_thresh": confidence_thresh,
+                    "classes": classes,
+                }
+            )
+            label = (
+                f"out-{vp_classes[0]}" if vp_classes else "no-vp"
+            )
+            return [
+                fol.Detections(
+                    detections=[
+                        fol.Detection(label=label, bounding_box=[0, 0, 1, 1])
+                    ]
+                )
+            ]
+
+        fake_output_processor.calls = processor_calls
+        model._output_processor = fake_output_processor
+
         return model
 
     def test_visual_prompts_consumed_per_image_with_full_predict_kwargs(
         self, monkeypatch
     ):
-        from fiftyone.utils import ultralytics as fu
-
         captured_calls = []
 
         class _Result:
@@ -455,28 +489,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         def fake_predict(img, **kwargs):
             captured_calls.append({"img": img, **kwargs})
             return [result_a if img == "img-A" else result_b]
-
-        to_instances_calls = []
-
-        def fake_to_instances(results, confidence_thresh, classes):
-            to_instances_calls.append(
-                {
-                    "results": results,
-                    "confidence_thresh": confidence_thresh,
-                    "classes": classes,
-                }
-            )
-            return fol.Detections(
-                detections=[
-                    fol.Detection(
-                        label=f"out-{r.names[0]}",
-                        bounding_box=[0, 0, 1, 1],
-                    )
-                    for r in results
-                ]
-            )
-
-        monkeypatch.setattr(fu, "to_instances", fake_to_instances)
 
         sentinel_predictor = object
         model = self._make_model(
@@ -523,42 +535,30 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         assert captured_calls[0]["visual_prompts"] is vp_a
         assert captured_calls[1]["visual_prompts"] is vp_b
 
-        assert result_a.names == {0: "dog", 1: "cat"}
-        assert result_b.names == {0: "bird"}
+        processor_calls = model._output_processor.calls
+        assert len(processor_calls) == 2
 
-        assert len(to_instances_calls) == 2
-        for call in to_instances_calls:
-            assert call["confidence_thresh"] is None
-            assert call["classes"] is None
+        assert processor_calls[0]["output"] == [result_a]
+        assert processor_calls[0]["vp_classes"] == ["dog", "cat"]
+        assert processor_calls[0]["confidence_thresh"] is None
+        assert processor_calls[0]["classes"] is None
+
+        assert processor_calls[1]["output"] == [result_b]
+        assert processor_calls[1]["vp_classes"] == ["bird"]
 
         assert len(labels) == 2
         assert isinstance(labels[0], fol.Detections)
         assert labels[0].detections[0].label == "out-dog"
         assert labels[1].detections[0].label == "out-bird"
 
-    def test_visual_prompts_forwards_filter_classes_to_to_instances(
+    def test_visual_prompts_forwards_config_to_output_processor(
         self, monkeypatch
     ):
-        from fiftyone.utils import ultralytics as fu
-
-        captured_to_instances = []
-
         class _Result:
             names = None
 
         def fake_predict(img, **kwargs):
             return [_Result()]
-
-        def fake_to_instances(results, confidence_thresh, classes):
-            captured_to_instances.append(
-                {
-                    "confidence_thresh": confidence_thresh,
-                    "classes": classes,
-                }
-            )
-            return fol.Detections()
-
-        monkeypatch.setattr(fu, "to_instances", fake_to_instances)
 
         model = self._make_model(
             monkeypatch,
@@ -571,17 +571,13 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         model._predict_all_visual_prompts(["A"], [vp], [["dog"]])
 
-        assert captured_to_instances == [
-            {"confidence_thresh": 0.42, "classes": ["dog", "cat"]}
-        ]
+        calls = model._output_processor.calls
+        assert len(calls) == 1
+        assert calls[0]["confidence_thresh"] == 0.42
+        assert calls[0]["classes"] == ["dog", "cat"]
+        assert calls[0]["vp_classes"] == ["dog"]
 
     def test_predictor_restored_on_success(self, monkeypatch):
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         class _Result:
             names = None
 
@@ -599,12 +595,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         assert model._set_predictor_calls == [(model.config, model._model)]
 
     def test_predictor_restored_on_exception(self, monkeypatch):
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         def fake_predict(img, **kwargs):
             raise RuntimeError("ultralytics blew up")
 
@@ -618,23 +608,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         assert model._set_predictor_calls == [(model.config, model._model)]
 
     def test_none_visual_prompts_yield_empty_detections(self, monkeypatch):
-        from fiftyone.utils import ultralytics as fu
-
-        to_instances_calls = []
-
-        def fake_to_instances(results, confidence_thresh, classes):
-            to_instances_calls.append(results)
-            return fol.Detections(
-                detections=[
-                    fol.Detection(
-                        label="should-not-appear",
-                        bounding_box=[0, 0, 1, 1],
-                    )
-                ]
-            )
-
-        monkeypatch.setattr(fu, "to_instances", fake_to_instances)
-
         predict_calls = []
 
         class _Result:
@@ -658,22 +631,17 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         )
 
         assert predict_calls == ["img-real"]
-        assert len(to_instances_calls) == 1
+        assert len(model._output_processor.calls) == 1
+        assert model._output_processor.calls[0]["vp_classes"] == ["dog"]
 
         assert len(labels) == 3
         assert isinstance(labels[0], fol.Detections)
         assert labels[0].detections == []
         assert isinstance(labels[1], fol.Detections)
         assert labels[1].detections == []
-        assert labels[2].detections[0].label == "should-not-appear"
+        assert labels[2].detections[0].label == "out-dog"
 
     def test_confidence_thresh_overrides_predictor_default(self, monkeypatch):
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         captured = {}
 
         class _Result:
@@ -701,12 +669,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
     ):
         # Falsy guard: an explicit 0.0 must not collapse to the predictor
         # default.
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         captured = {}
 
         class _Result:
@@ -732,12 +694,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
     def test_confidence_thresh_none_falls_back_to_predictor_default(
         self, monkeypatch
     ):
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         captured = {}
 
         class _Result:
@@ -760,13 +716,12 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         assert captured["conf"] == 0.31
 
-    def test_multiple_results_per_predict_call_share_names_map(
+    def test_multiple_results_per_predict_call_pass_to_output_processor(
         self, monkeypatch
     ):
-        # Every Result returned by one predict() call receives the same
-        # names_map.
-        from fiftyone.utils import ultralytics as fu
-
+        # The full results list from a single predict() call is forwarded to
+        # the OutputProcessor in one invocation; per-result names_map handling
+        # belongs to the processor.
         class _Result:
             def __init__(self):
                 self.names = None
@@ -777,10 +732,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         def fake_predict(img, **kwargs):
             return [result_first, result_second]
 
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         model = self._make_model(monkeypatch, predict=fake_predict)
 
         vp = {
@@ -790,19 +741,14 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         model._predict_all_visual_prompts(["A"], [vp], [["dog", "cat"]])
 
-        expected = {0: "dog", 1: "cat"}
-        assert result_first.names == expected
-        assert result_second.names == expected
+        calls = model._output_processor.calls
+        assert len(calls) == 1
+        assert calls[0]["output"] == [result_first, result_second]
+        assert calls[0]["vp_classes"] == ["dog", "cat"]
 
     def test_zip_strict_raises_on_length_mismatch(self, monkeypatch):
         # strict=True trips on the next advance, so matched tuples run before
         # the error surfaces. The finally block must still restore.
-        from fiftyone.utils import ultralytics as fu
-
-        monkeypatch.setattr(
-            fu, "to_instances", lambda *a, **kw: fol.Detections()
-        )
-
         class _Result:
             names = None
 
@@ -825,6 +771,95 @@ class TestFiftyOneYOLOEVPVisualPrompts:
 
         assert predict_calls == ["A", "B"]
         assert model._set_predictor_calls == [(model.config, model._model)]
+
+
+class TestYOLOEVPSegmentationOutputProcessor:
+    def test_remaps_names_when_vp_classes_provided(self, monkeypatch):
+        from fiftyone.utils import ultralytics as fu
+
+        class _Result:
+            def __init__(self):
+                self.names = None
+
+        result_first = _Result()
+        result_second = _Result()
+
+        captured_to_instances = []
+
+        def fake_to_instances(results, confidence_thresh=None, classes=None):
+            captured_to_instances.append(
+                {
+                    "results": results,
+                    "confidence_thresh": confidence_thresh,
+                    "classes": classes,
+                }
+            )
+            return [
+                fol.Detections(
+                    detections=[
+                        fol.Detection(
+                            label=r.names[0], bounding_box=[0, 0, 1, 1]
+                        )
+                    ]
+                )
+                for r in results
+            ]
+
+        monkeypatch.setattr(fu, "to_instances", fake_to_instances)
+
+        proc = fu.YOLOEVPSegmentationOutputProcessor(classes=["unused"])
+
+        out = proc(
+            [result_first, result_second],
+            None,
+            vp_classes=["dog", "cat"],
+            confidence_thresh=0.5,
+            classes=["dog"],
+        )
+
+        expected_names = {0: "dog", 1: "cat"}
+        assert result_first.names == expected_names
+        assert result_second.names == expected_names
+
+        assert len(captured_to_instances) == 1
+        forwarded = captured_to_instances[0]
+        assert forwarded["results"] == [result_first, result_second]
+        assert forwarded["confidence_thresh"] == 0.5
+        assert forwarded["classes"] == ["dog"]
+
+        assert isinstance(out, list)
+        assert len(out) == 2
+
+    def test_falls_through_to_super_when_vp_classes_none(self, monkeypatch):
+        from fiftyone.utils import ultralytics as fu
+
+        super_calls = []
+
+        def fake_super_call(self, output, frame_size, **kwargs):
+            super_calls.append({"output": output, "kwargs": kwargs})
+            return [fol.Detections()]
+
+        monkeypatch.setattr(
+            fu.UltralyticsSegmentationOutputProcessor,
+            "__call__",
+            fake_super_call,
+        )
+
+        proc = fu.YOLOEVPSegmentationOutputProcessor(classes=["a"])
+
+        sentinel_output = {"preds": "P", "imgs": "I", "orig_imgs": "OI"}
+
+        proc(
+            sentinel_output,
+            (10, 20),
+            confidence_thresh=0.7,
+            classes=["a", "b"],
+        )
+
+        assert len(super_calls) == 1
+        assert super_calls[0]["output"] is sentinel_output
+        assert super_calls[0]["kwargs"]["confidence_thresh"] == 0.7
+        assert super_calls[0]["kwargs"]["classes"] == ["a", "b"]
 
 
 class TestGetYOLOEVPPredictor:

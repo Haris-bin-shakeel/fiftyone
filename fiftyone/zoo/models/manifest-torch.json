@@ -6885,7 +6885,7 @@
                     "entrypoint_args": {
                         "model": "yoloe-26n-seg.pt"
                     },
-                    "output_processor_cls": "fiftyone.utils.ultralytics.UltralyticsSegmentationOutputProcessor"
+                    "output_processor_cls": "fiftyone.utils.ultralytics.YOLOEVPSegmentationOutputProcessor"
                 }
             },
             "requirements": {
@@ -6943,7 +6943,7 @@
                     "entrypoint_args": {
                         "model": "yoloe-26s-seg.pt"
                     },
-                    "output_processor_cls": "fiftyone.utils.ultralytics.UltralyticsSegmentationOutputProcessor"
+                    "output_processor_cls": "fiftyone.utils.ultralytics.YOLOEVPSegmentationOutputProcessor"
                 }
             },
             "requirements": {
@@ -7001,7 +7001,7 @@
                     "entrypoint_args": {
                         "model": "yoloe-26m-seg.pt"
                     },
-                    "output_processor_cls": "fiftyone.utils.ultralytics.UltralyticsSegmentationOutputProcessor"
+                    "output_processor_cls": "fiftyone.utils.ultralytics.YOLOEVPSegmentationOutputProcessor"
                 }
             },
             "requirements": {
@@ -7059,7 +7059,7 @@
                     "entrypoint_args": {
                         "model": "yoloe-26l-seg.pt"
                     },
-                    "output_processor_cls": "fiftyone.utils.ultralytics.UltralyticsSegmentationOutputProcessor"
+                    "output_processor_cls": "fiftyone.utils.ultralytics.YOLOEVPSegmentationOutputProcessor"
                 }
             },
             "requirements": {
@@ -7117,7 +7117,7 @@
                     "entrypoint_args": {
                         "model": "yoloe-26x-seg.pt"
                     },
-                    "output_processor_cls": "fiftyone.utils.ultralytics.UltralyticsSegmentationOutputProcessor"
+                    "output_processor_cls": "fiftyone.utils.ultralytics.YOLOEVPSegmentationOutputProcessor"
                 }
             },
             "requirements": {
