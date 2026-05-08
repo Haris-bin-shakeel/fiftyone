@@ -428,6 +428,14 @@ class TestFiftyOneYOLOEVPVisualPrompts:
                 )
             ),
         )
+
+        # Stub _set_predictor: parent's implementation requires a real
+        # ultralytics model. Tests inspect _set_predictor_calls.
+        model._set_predictor_calls = []
+        model._set_predictor = lambda config, m: model._set_predictor_calls.append(
+            (config, m)
+        )
+
         return model
 
     def test_visual_prompts_consumed_per_image_with_full_predict_kwargs(
@@ -577,14 +585,10 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         class _Result:
             names = None
 
-        # Simulate ultralytics installing the VP predictor mid-call.
         def fake_predict(img, **kwargs):
-            model_ref._model.predictor = SimpleNamespace(name="VP_PRED")
             return [_Result()]
 
         model = self._make_model(monkeypatch, predict=fake_predict)
-        model_ref = model
-        original_predictor = model._model.predictor
 
         vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
@@ -592,7 +596,7 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             ["A", "B"], [vp, vp], [["x"], ["x"]]
         )
 
-        assert model._model.predictor is original_predictor
+        assert model._set_predictor_calls == [(model.config, model._model)]
 
     def test_predictor_restored_on_exception(self, monkeypatch):
         from fiftyone.utils import ultralytics as fu
@@ -602,19 +606,16 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         )
 
         def fake_predict(img, **kwargs):
-            model_ref._model.predictor = SimpleNamespace(name="VP_PRED")
             raise RuntimeError("ultralytics blew up")
 
         model = self._make_model(monkeypatch, predict=fake_predict)
-        model_ref = model
-        original_predictor = model._model.predictor
 
         vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
 
         with pytest.raises(RuntimeError, match="ultralytics blew up"):
             model._predict_all_visual_prompts(["A"], [vp], [["x"]])
 
-        assert model._model.predictor is original_predictor
+        assert model._set_predictor_calls == [(model.config, model._model)]
 
     def test_none_visual_prompts_yield_empty_detections(self, monkeypatch):
         from fiftyone.utils import ultralytics as fu
@@ -814,7 +815,6 @@ class TestFiftyOneYOLOEVPVisualPrompts:
         model = self._make_model(monkeypatch, predict=fake_predict)
 
         vp = {"bboxes": np.array([[0.0, 0.0, 1.0, 1.0]]), "cls": np.array([0])}
-        original_predictor = model._model.predictor
 
         with pytest.raises(ValueError):
             model._predict_all_visual_prompts(
@@ -824,7 +824,7 @@ class TestFiftyOneYOLOEVPVisualPrompts:
             )
 
         assert predict_calls == ["A", "B"]
-        assert model._model.predictor is original_predictor
+        assert model._set_predictor_calls == [(model.config, model._model)]
 
 
 class TestGetYOLOEVPPredictor:

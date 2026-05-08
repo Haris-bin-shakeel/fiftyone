@@ -792,7 +792,10 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
         self, orig_images, visual_prompts_list, vp_classes_list
     ):
         vp_predictor_cls = _get_yoloe_vp_predictor()
-        orig_predictor = self._model.predictor
+        default_args = self._model.predictor.args
+        default_rect = default_args.rect
+        default_retina_masks = default_args.retina_masks
+        default_conf = default_args.conf
 
         all_labels = []
         try:
@@ -812,15 +815,15 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
                     orig_img,
                     visual_prompts=visual_prompts,
                     predictor=vp_predictor_cls,
-                    rect=orig_predictor.args.rect,
-                    retina_masks=orig_predictor.args.retina_masks,
+                    rect=default_rect,
+                    retina_masks=default_retina_masks,
                     save=False,
                     mode="predict",
                     verbose=False,
                     device=self._device,
                     conf=self.config.confidence_thresh
                     if self.config.confidence_thresh is not None
-                    else orig_predictor.args.conf,
+                    else default_conf,
                 )
 
                 names_map = dict(enumerate(classes))
@@ -838,7 +841,7 @@ class FiftyOneYOLOEVPModel(FiftyOneYOLOModel):
 
                 all_labels.append(labels)
         finally:
-            self._model.predictor = orig_predictor
+            self._set_predictor(self.config, self._model)
 
         return all_labels
 
