@@ -70,8 +70,10 @@ export function useGroupAnnotationModeController() {
   const [carouselVisible, setCarouselVisible] = useRecoilState(
     fos.groupMediaIsCarouselVisibleSetting
   );
-  // Track the previous mode for detecting transitions
-  const prevModeRef = useRef(mode);
+  // Always initialize to EXPLORE so that a modal opening directly in ANNOTATE
+  // mode (e.g. after close/reopen with modalMode persisted) is treated as an
+  // EXPLORE → ANNOTATE transition and applySlice() runs immediately.
+  const prevModeRef = useRef(ModalMode.EXPLORE);
 
   const visibilitySnapshotRef = useRef<GroupVisibilityConfigSnapshot | null>(
     null

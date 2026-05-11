@@ -114,13 +114,13 @@ const Fo3dLoadErrorState = ({ error }: { error: Error | null }) => {
 };
 
 export const MediaTypeFo3dComponent = () => {
-  const interactionSample = fos.useInteraction3dSample();
-  const sceneSample = fos.useSceneSample3d();
+  const interactionSample = fos.useStableInteraction3dSample();
+  const sceneSample = fos.useStableSceneSample3d();
   const settings = usePluginSettings<Looker3dSettings>("3d");
   const mode = fos.useModalMode();
   const canAnnotate = useCanAnnotate().showAnnotationTab;
   const current3dAnnotationMode = useCurrent3dAnnotationMode();
-  const sceneSampleId = sceneSample.id ?? sceneSample.sample._id;
+  const sceneSampleId = sceneSample?.id ?? sceneSample?.sample._id;
   const loadingManager = useMemo(() => new LoadingManager(), [sceneSampleId]);
 
   const {
@@ -222,7 +222,7 @@ export const MediaTypeFo3dComponent = () => {
     mode === fos.ModalMode.ANNOTATE &&
     (isPolylineAnnotateActive || isCuboidAnnotateActive);
 
-  if (isParsingFo3d) {
+  if (!sceneSample || !interactionSample || isParsingFo3d) {
     return <LoadingDots />;
   }
 

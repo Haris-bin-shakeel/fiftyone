@@ -7,8 +7,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useRecoilValue } from "recoil";
 import { groupContainer, mainGroup } from "./Group.module.css";
 import { GroupCarousel } from "./GroupCarousel";
+import EnsureGroupSample from "./EnsureGroupSample";
 import { GroupImageVideoSample } from "./GroupImageVideoSample";
 import GroupSample3d from "./GroupSample3d";
+import { GroupSuspense } from "./GroupSuspense";
 
 const DEFAULT_SPLIT_VIEW_LEFT_WIDTH = "800";
 
@@ -16,9 +18,9 @@ export const GroupView = () => {
   const theme = useTheme();
   const key = useRecoilValue(groupId);
   const mediaField = useRecoilValue(fos.selectedMediaField(true));
-  const isCarouselVisible = useRecoilValue(fos.groupMediaIsCarouselVisible);
-  const isMainVisible = useRecoilValue(fos.groupMediaIsMain2DViewerVisible);
   const is3dVisible = fos.useIs3dVisible();
+  const isCarouselVisible = fos.useIsGroupCarouselVisible();
+  const isMainVisible = fos.useIsGroupMain2dViewerVisible();
   const [width, setWidth] = useBrowserStorage(
     "group-modal-split-view-width",
     DEFAULT_SPLIT_VIEW_LEFT_WIDTH
@@ -91,11 +93,23 @@ export const GroupView = () => {
                 fullHeight={!isMainVisible}
               />
             )}
-            {isMainVisible && <GroupImageVideoSample />}
-            {shouldRender3DBelow && <GroupSample3d />}
+            {isMainVisible && (
+              <EnsureGroupSample>
+                <GroupImageVideoSample />
+              </EnsureGroupSample>
+            )}
+            {shouldRender3DBelow && (
+              <GroupSuspense>
+                <GroupSample3d />
+              </GroupSuspense>
+            )}
           </Resizable>
         )}
-        {!shouldRender3DBelow && is3dVisible && <GroupSample3d />}
+        {!shouldRender3DBelow && is3dVisible && (
+          <GroupSuspense>
+            <GroupSample3d />
+          </GroupSuspense>
+        )}
       </div>
     </div>
   );

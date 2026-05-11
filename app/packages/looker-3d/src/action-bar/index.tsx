@@ -26,14 +26,16 @@ export const ActionBar = ({
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }) => {
-  const activeFo3dSlice = fos.useActiveFo3dSlice();
-  const sceneSample = fos.useSceneSample3d();
-  const interactionSample = fos.useInteraction3dSample();
+  const activeFo3dSlice = fos.useStableActiveFo3dSlice();
+  const sceneSample = fos.useStableSceneSample3d();
+  const interactionSample = fos.useStableInteraction3dSample();
   const hasMultipleSlices = fos.useHasMultiple3dSlices();
   const fo3dContent = fos.useFo3dContent();
   const mediaField = useRecoilValue(fos.selectedMediaField(true));
   const isFo3d = useMemo(() => {
-    const mediaPath = getMediaPathForFo3dSample(sceneSample, mediaField);
+    const mediaPath = sceneSample
+      ? getMediaPathForFo3dSample(sceneSample, mediaField)
+      : null;
 
     return (
       Boolean(activeFo3dSlice) ||

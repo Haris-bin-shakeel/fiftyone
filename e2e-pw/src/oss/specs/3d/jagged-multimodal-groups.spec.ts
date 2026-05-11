@@ -209,6 +209,8 @@ test.describe.serial("jagged multimodal groups", () => {
     await modal.assert.verify3dRendererVisible();
     await modal.looker3dControls.waitForAllAssetsLoaded();
     await modal.assert.verifyHasNoViewerError();
+    await modal.assert.verifyMainViewerShowsNoSample();
+    await modal.assert.verifyCarouselShowsNoSamples();
     await modal.sidebar.assert.waitUntilSidebarEntryTextEqualsMultiple({
       "group.name": "pcd",
       name: groupSpecs[0].pcdName,

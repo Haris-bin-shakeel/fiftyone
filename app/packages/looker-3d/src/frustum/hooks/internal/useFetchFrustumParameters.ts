@@ -1,7 +1,7 @@
 import * as fos from "@fiftyone/state";
 import { getFetchFunction } from "@fiftyone/utilities";
 import { useCallback, useEffect, useState } from "react";
-import { useRecoilValue } from "recoil";
+import { useRecoilValue, useRecoilValueLoadable } from "recoil";
 import { useImageSlicesIfAvailable } from "../../../annotation/useImageSlicesIfAvailable";
 import type {
   CameraIntrinsics,
@@ -22,13 +22,17 @@ export function useFetchFrustumParameters() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [fetchTrigger, setFetchTrigger] = useState(0);
-  const currentFo3dSlice = fos.useActiveFo3dSlice();
+  const currentFo3dSlice = fos.useStableActiveFo3dSlice();
   const allNon3dSlices = fos.useNon3dSlices();
 
   const datasetId = useRecoilValue(fos.datasetId);
   const sampleId = useRecoilValue(fos.currentSampleId);
   const isGroup = useRecoilValue(fos.isGroup);
-  const modalSample = useRecoilValue(fos.modalSample);
+  const modalSampleLoadable = useRecoilValueLoadable(fos.modalSample);
+  const modalSample =
+    modalSampleLoadable.state === "hasValue"
+      ? modalSampleLoadable.contents
+      : null;
 
   const { resolveUrlForImageSlice, isLoadingImageSlices } =
     useImageSlicesIfAvailable(modalSample);

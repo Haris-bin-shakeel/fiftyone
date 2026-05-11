@@ -1,4 +1,3 @@
-import { Loading, LoadingDots } from "@fiftyone/components";
 import * as foq from "@fiftyone/relay";
 import * as fos from "@fiftyone/state";
 import { modalSelector } from "@fiftyone/state";
@@ -14,7 +13,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { usePreloadedQuery } from "react-relay";
+import { PreloadedQuery, usePreloadedQuery } from "react-relay";
 import {
   useRecoilCallback,
   useRecoilState,
@@ -38,16 +37,38 @@ const BarContainer = styled.div`
   }
 `;
 
-export const GroupElementsLinkBar = React.memo(() => {
-  const setCursor = useSetRecoilState(fos.dynamicGroupIndex);
-  const { orderBy } = useRecoilValue(fos.dynamicGroupParameters)!;
+type OnPageChange = (
+  e: React.ChangeEvent<HTMLInputElement>,
+  newElementIndex?: number
+) => void;
 
-  const { queryRef } = useDynamicGroupSamples();
+/**
+ * Inner component that owns the Relay data fetch and sample-navigation side
+ * effect. Lives inside a Suspense boundary so it can suspend freely on each
+ * new queryRef without unmounting the outer bar shell.
+ */
+const PaginationBarContent = ({
+  queryRef,
+  orderBy,
+  deferred,
+  elementsCount,
+  setCursor,
+  onPageChange,
+  isTextBoxEmpty,
+  textBoxRef,
+  dynamicGroupCurrentElementIndex,
+}: {
+  queryRef: PreloadedQuery<foq.paginateSamplesQuery>;
+  orderBy: string | undefined;
+  deferred: number;
+  elementsCount: number;
+  setCursor: (n: number) => void;
+  onPageChange: OnPageChange;
+  isTextBoxEmpty: boolean;
+  textBoxRef: React.RefObject<HTMLInputElement>;
+  dynamicGroupCurrentElementIndex: number;
+}) => {
   const data = usePreloadedQuery(foq.paginateSamples, queryRef);
-
-  const [dynamicGroupCurrentElementIndex, setDynamicGroupCurrentElementIndex] =
-    useRecoilState(fos.dynamicGroupCurrentElementIndex);
-  const deferred = useDeferredValue(dynamicGroupCurrentElementIndex);
 
   const dynamicGroupParameters = useRecoilValue(
     fos.dynamicGroupParameters
@@ -59,22 +80,19 @@ export const GroupElementsLinkBar = React.memo(() => {
         const current = await snapshot.getPromise(fos.modalSelector);
 
         if (current && current.id !== sample.id) {
-          set(modalSelector, (current) => {
-            return {
-              ...current,
-              id: sample.id,
-              groupId: groupField
-                ? // if we are in a grouped dataset, get the next group id
-                  (getValue(sample.sample, groupField)._id as string)
-                : null,
-            };
-          });
+          set(modalSelector, (current) => ({
+            ...current,
+            id: sample.id,
+            groupId: groupField
+              ? (getValue(sample.sample, groupField)._id as string)
+              : null,
+          }));
         }
       },
     [dynamicGroupParameters, groupField]
   );
 
-  const groupByFieldValue = useRecoilValue(fos.groupByFieldValue);
+  const groupByFieldValue = fos.useGroupByFieldValue();
   const mapRef = useMemo(
     () => new Map<number, fos.ModalSample>(),
     [groupByFieldValue]
@@ -90,34 +108,74 @@ export const GroupElementsLinkBar = React.memo(() => {
   }, [data, mapRef]);
 
   useEffect(() => {
-    if (map.size === 0) {
-      return;
-    }
+    if (map.size === 0) return;
     const nextSample = map.get(deferred - 1);
-
     if (nextSample) {
       setSample(nextSample);
     } else {
-      // load a couple of previous samples for extra padding so that previous is just as fast
+      // load a few previous samples for padding so navigating back is equally fast
       setCursor(deferred - 5);
     }
   }, [map, setCursor, deferred, setSample]);
 
-  const elementsCount = useRecoilValue(
-    fos.dynamicGroupsElementCount({ modal: true })
+  return (
+    <>
+      <Pagination
+        count={elementsCount}
+        siblingCount={1}
+        boundaryCount={2}
+        page={deferred}
+        onChange={onPageChange as PaginationProps["onChange"]}
+        shape="rounded"
+        color="primary"
+        classes={{ root: style.noRipple }}
+        renderItem={(item) => (
+          <PaginationItem
+            component={PaginationComponentWithTooltip}
+            orderByValue={
+              item.page >= 0 && orderBy
+                ? map.get(item.page - 1)?.sample[orderBy]
+                : undefined
+            }
+            // hack because page is not being forwarded as-is for some reason
+            currentPage={item.page}
+            isButton={item.type !== "page"}
+            {...item}
+          />
+        )}
+      />
+
+      {elementsCount >= 10 && (
+        <input
+          data-cy="dynamic-group-pagination-bar-input"
+          ref={textBoxRef}
+          className={style.currentPageInput}
+          value={isTextBoxEmpty ? "" : dynamicGroupCurrentElementIndex}
+          onChange={onPageChange}
+        />
+      )}
+    </>
   );
+};
+
+export const GroupElementsLinkBar = React.memo(() => {
+  const setCursor = useSetRecoilState(fos.dynamicGroupIndex);
+  const { orderBy } = useRecoilValue(fos.dynamicGroupParameters)!;
+  const { queryRef } = useDynamicGroupSamples();
+  const deferredQueryRef = useDeferredValue(queryRef);
+
+  const [dynamicGroupCurrentElementIndex, setDynamicGroupCurrentElementIndex] =
+    useRecoilState(fos.dynamicGroupCurrentElementIndex);
+  const deferred = useDeferredValue(dynamicGroupCurrentElementIndex);
+
+  const elementsCount = fos.useElementsCount(true);
 
   const [isTextBoxEmpty, setIsTextBoxEmpty] = useState(false);
   const textBoxRef = useRef<HTMLInputElement>(null);
 
-  const onPageChange = useCallback(
-    async (
-      e: React.ChangeEvent<HTMLInputElement>,
-      newElementIndex?: number
-    ) => {
-      if (newElementIndex === deferred) {
-        return;
-      }
+  const onPageChange = useCallback<OnPageChange>(
+    (e, newElementIndex) => {
+      if (newElementIndex === deferred) return;
 
       setIsTextBoxEmpty(false);
 
@@ -146,9 +204,7 @@ export const GroupElementsLinkBar = React.memo(() => {
           newElementIndex = newValueNum;
         }
 
-        if (newElementIndex === deferred) {
-          setIsTextBoxEmpty(false);
-        }
+        if (newElementIndex === deferred) setIsTextBoxEmpty(false);
         setDynamicGroupCurrentElementIndex(newElementIndex);
 
         setTimeout(() => {
@@ -178,56 +234,23 @@ export const GroupElementsLinkBar = React.memo(() => {
 
   fos.useEventHandler(document, "keydown", keyNavigationHandler);
 
-  return (
-    <>
-      <BarContainer data-cy="dynamic-group-pagination-bar">
-        <Suspense
-          fallback={
-            <Loading>
-              <LoadingDots text={""} />
-            </Loading>
-          }
-        >
-          <Pagination
-            count={elementsCount}
-            siblingCount={1}
-            boundaryCount={2}
-            page={deferred}
-            onChange={onPageChange as PaginationProps["onChange"]}
-            shape="rounded"
-            color="primary"
-            classes={{
-              root: style.noRipple,
-            }}
-            renderItem={(item) => {
-              return (
-                <PaginationItem
-                  component={PaginationComponentWithTooltip}
-                  orderByValue={
-                    item.page >= 0 && orderBy
-                      ? map.get(item.page - 1)?.sample[orderBy]
-                      : undefined
-                  }
-                  // hack because page is not being forwarded as-is for some reason
-                  currentPage={item.page}
-                  isButton={item.type !== "page"}
-                  {...item}
-                />
-              );
-            }}
-          />
+  if (!deferredQueryRef) return null;
 
-          {elementsCount >= 10 && (
-            <input
-              data-cy="dynamic-group-pagination-bar-input"
-              ref={textBoxRef}
-              className={style.currentPageInput}
-              value={isTextBoxEmpty ? "" : dynamicGroupCurrentElementIndex}
-              onChange={onPageChange}
-            />
-          )}
-        </Suspense>
-      </BarContainer>
-    </>
+  return (
+    <BarContainer data-cy="dynamic-group-pagination-bar">
+      <Suspense fallback={null}>
+        <PaginationBarContent
+          queryRef={deferredQueryRef}
+          orderBy={orderBy}
+          deferred={deferred}
+          elementsCount={elementsCount}
+          setCursor={setCursor}
+          onPageChange={onPageChange}
+          isTextBoxEmpty={isTextBoxEmpty}
+          textBoxRef={textBoxRef}
+          dynamicGroupCurrentElementIndex={dynamicGroupCurrentElementIndex}
+        />
+      </Suspense>
+    </BarContainer>
   );
 });

@@ -82,7 +82,7 @@ export const SliceSelector = () => {
 
 const PcdsSelector = () => {
   const activeSlices = fos.useActive3dSlices();
-  const allSampleMap = fos.useAll3dSamplesMap();
+  const allSampleMap = fos.useStableAll3dSamplesMap();
   const allSlices = fos.useAll3dSlices();
   const actions = fos.useRenderConfig3dActions();
   const setCurrentAction = useSetRecoilState(currentActionAtom);

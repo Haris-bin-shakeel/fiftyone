@@ -384,6 +384,18 @@ class ModalAsserter {
     await expect(action.first()).toHaveText(String(n));
   }
 
+  async verifyMainViewerShowsNoSample() {
+    await expect(
+      this.modalPom.locator.getByTestId("group-sample-not-found")
+    ).toBeVisible();
+  }
+
+  async verifyCarouselShowsNoSamples() {
+    await expect(
+      this.modalPom.groupCarousel.getByTestId("group-carousel-no-samples")
+    ).toBeVisible();
+  }
+
   async verifyCarouselLength(expectedCount: number) {
     const actualLookerCount = await this.modalPom.groupCarousel
       .getByTestId("looker")

@@ -175,7 +175,9 @@ const Column: React.FC = () => {
 
   return (
     <>
-      {isEmpty && <Loading>No data</Loading>}
+      {isEmpty && (
+        <Loading dataCy="group-carousel-no-samples">No samples</Loading>
+      )}
       <div
         style={{
           display: "block",

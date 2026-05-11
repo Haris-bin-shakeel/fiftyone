@@ -8,12 +8,13 @@ import { GroupSampleWrapper } from "./GroupSampleWrapper";
 import { GroupSuspense } from "./GroupSuspense";
 
 const Sample3dWrapper = () => {
-  const interactionSample = fos.useInteraction3dSample();
+  const interactionSample = fos.useStableInteraction3dSample();
   const isPinned = fos.useIs3dPinned();
   const actions = fos.useRenderConfig3dActions();
-
-  const hover = fos.useHoveredSample(interactionSample.sample);
+  const hover = fos.useHoveredSample(interactionSample?.sample);
   const hasGroupView = !useRecoilValue(fos.only3d);
+
+  if (!interactionSample) return null;
 
   return hasGroupView ? (
     <GroupSampleWrapper
@@ -33,7 +34,7 @@ const Sample3dWrapper = () => {
 
 export default () => {
   const activeSlices = fos.useActive3dSlices();
-  const allSampleMap = fos.useAll3dSamplesMap();
+  const allSampleMap = fos.useStableAll3dSamplesMap();
   const pinnedSlice = fos.usePinned3dSlice();
   const actions = fos.useRenderConfig3dActions();
   const modalId = useRecoilValue(fos.modalSampleId);
@@ -50,7 +51,7 @@ export default () => {
     return <Loading>No 3D slices</Loading>;
   }
 
-  if (!allSampleMap[pinnedSlice ?? ""]) {
+  if (pinnedSlice && !allSampleMap[pinnedSlice]) {
     return <Loading>Pixelating...</Loading>;
   }
 

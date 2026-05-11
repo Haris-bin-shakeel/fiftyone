@@ -24,6 +24,7 @@ export default ({
   const actions = fos.useRenderConfig3dActions();
   const modal = useRecoilValueLoadable(modalSample);
   const slice = useRecoilValue(modalGroupSlice);
+  const isPinned = fos.useIs3dPinned();
   const resetGroupSlice = useRecoilCallback(
     ({ set, snapshot }) =>
       async () => {
@@ -49,13 +50,17 @@ export default ({
   );
 
   useEffect(() => {
+    if (!slice && !isPinned) {
+      resetGroupSlice();
+      return;
+    }
     modal.state === "hasError" &&
       modal.contents instanceof GroupSampleNotFound &&
       resetGroupSlice();
-  }, [modal, resetGroupSlice]);
+  }, [modal, resetGroupSlice, slice, isPinned]);
 
   if (!slice) {
-    return <Loading>No data</Loading>;
+    return <Loading dataCy="group-sample-not-found">No sample</Loading>;
   }
 
   if (

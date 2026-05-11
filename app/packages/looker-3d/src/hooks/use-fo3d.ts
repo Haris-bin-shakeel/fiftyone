@@ -124,11 +124,11 @@ export const useFo3d = (sample: fos.ModalSample): UseFo3dReturnType => {
   const mediaField = useRecoilValue(fos.selectedMediaField(true));
   const isGroup = useRecoilValue(fos.isGroup);
   const activeSlices = fos.useActive3dSlices();
-  const activeSampleMap = fos.useActive3dSamplesMap();
-  const allSampleMap = fos.useAll3dSamplesMap();
+  const activeSampleMap = fos.useStableActive3dSamplesMap();
+  const allSampleMap = fos.useStableAll3dSamplesMap();
   const activeDirectSlices = fos.useActiveDirectSlices();
-  const realFo3dSlices = fos.useRealFo3dSlices();
-  const activeFo3dSlice = fos.useActiveFo3dSlice();
+  const realFo3dSlices = fos.useStableRealFo3dSlices();
+  const activeFo3dSlice = fos.useStableActiveFo3dSlice();
   const { setFo3dContent } = fos.useRenderConfig3dActions();
   const fetchFo3d = useFo3dFetcher();
 

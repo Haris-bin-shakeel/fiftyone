@@ -57,8 +57,8 @@ const SliceOption = ({ value, mediaType, ...info }: SliceOptionProps) => {
 
 const SliceSelector = ({
   onSliceSelected,
-  slices: allSlices,
-}: GroupAnnotationProps & { slices: AnnotationSliceInfo[] }) => {
+  slices,
+}: GroupAnnotationProps & { slices: AnnotationSliceInfo[] | "loading" }) => {
   const isEditing_ = useAtomValue(isEditing);
   const [modalGroupSlice, setModalGroupSlice] = useRecoilState(
     fos.modalGroupSlice
@@ -67,11 +67,16 @@ const SliceSelector = ({
   const [preferredSlice, setPreferredSlice] =
     fos.usePreferredGroupAnnotationSlice();
 
+  const allSlices = slices === "loading" ? [] : slices;
+
   const useSearch = useCallback(
     (search: string) => {
       const values = allSlices
-        .filter((slice) =>
-          slice.name.toLowerCase().includes(search.toLowerCase())
+        .filter(
+          ({ name, isMissing, isSupported }) =>
+            !isMissing &&
+            isSupported &&
+            name.toLowerCase().includes(search.toLowerCase())
         )
         .map((slice) => slice.name);
       return { values, total: values.length };
@@ -116,22 +121,22 @@ const SliceSelector = ({
     [sliceInfoMap]
   );
 
-  if (isEditing_ || allSlices.length === 0) {
+  if (isEditing_ || (slices !== "loading" && allSlices.length === 0)) {
     return null;
   }
 
   return (
     <Container data-cy="annotation-slice-selector">
-      <Label>Annotating Slice: </Label>
       <Selector
         inputStyle={{ height: 28, width: "100%" }}
         containerStyle={{ flex: 1 }}
         component={SliceOptionComponent}
         onSelect={onSelect}
         overflow={true}
-        placeholder="Select slice..."
+        placeholder={slices === "loading" ? "Loading..." : "Select slice..."}
         useSearch={useSearch}
-        value={modalGroupSlice ?? preferredSlice}
+        resultsPlacement="bottom-start"
+        value={slices === "loading" ? null : modalGroupSlice ?? preferredSlice}
         cy="annotation-slice"
       />
     </Container>
@@ -146,10 +151,6 @@ export default function GroupAnnotation({
   onSliceSelected,
 }: GroupAnnotationProps) {
   const { resolved: slices } = useGroupAnnotationSlices();
-
-  if (slices === "loading") {
-    return null;
-  }
 
   return <SliceSelector onSliceSelected={onSliceSelected} slices={slices} />;
 }
