@@ -3,12 +3,14 @@ import {
   activeFields,
   datasetName,
   modalMode,
+  useDisabledCheckboxPaths,
   useModalExplorEntries,
 } from "@fiftyone/state";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useRecoilValue } from "recoil";
 import ExploreSidebar from "../../Sidebar";
+import { createExploreIsDisabled } from "../../Sidebar/InteractiveSidebar";
 import SidebarContainer from "../../Sidebar/SidebarContainer";
 import Annotate from "./Annotate";
 import { exploreActiveFields } from "./Annotate/state";
@@ -19,10 +21,11 @@ import { useModalSidebarRenderEntry } from "./use-sidebar-render-entry";
 
 const Explore = () => {
   const renderEntry = useModalSidebarRenderEntry();
+  const disabled = useDisabledCheckboxPaths();
 
   return (
     <ExploreSidebar
-      isDisabled={() => false}
+      isDisabled={createExploreIsDisabled(disabled)}
       render={renderEntry}
       useEntries={useModalExplorEntries}
       modal={true}

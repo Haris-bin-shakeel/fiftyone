@@ -18,6 +18,7 @@ import { labelSchemasData } from "./state";
 import { useAnnotationContextManager } from "./useAnnotationContextManager";
 import type { AnnotationDisabledReason } from "./useCanAnnotate";
 import useLabels from "./useLabels";
+import { useRegisterPolylineSidebarSyncHandlers } from "./Edit/useRegisterPolylineSidebarSyncHandlers";
 import useSourceFieldToActivate from "./useSourceFieldToActivate";
 
 const DISABLED_MESSAGES: Record<
@@ -109,6 +110,7 @@ interface AnnotateProps {
 
 const Annotate = ({ disabledReason, loadSchemas }: AnnotateProps) => {
   useRegisterAIAnnotationEventHandlers();
+  useRegisterPolylineSidebarSyncHandlers();
 
   const { schemaManagerDisplayed } = useSchemaManagerModal();
   const loading = useAtomValue(labelSchemasData) === null;
