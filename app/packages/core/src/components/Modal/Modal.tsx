@@ -26,11 +26,7 @@ import {
   FallbackProps,
   ErrorBoundary as ReactErrorBoundary,
 } from "react-error-boundary";
-import {
-  useRecoilCallback,
-  useRecoilValue,
-  useRecoilValueLoadable,
-} from "recoil";
+import { useRecoilCallback, useRecoilValue } from "recoil";
 import styled from "styled-components";
 import Actions from "./Actions";
 import ModalNavigation from "./ModalNavigation";
@@ -93,21 +89,6 @@ const AnnotationHandlerRegistration = () => {
   useAutoSave(modalMode === ModalMode.ANNOTATE);
 
   return canManageSchema ? <SchemaManagementProvider /> : <Fragment />;
-};
-
-const T = ({ c }) => {
-  const group = fos.useIsGroupDataset();
-  const modal = useRecoilValueLoadable(fos.modalSample);
-
-  if (
-    group &&
-    modal.state === "hasError" &&
-    modal.contents instanceof fos.GroupSampleNotFound
-  ) {
-    return null;
-  }
-
-  return <>{c}</>;
 };
 
 const ModalErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
@@ -330,11 +311,9 @@ const Modal = () => {
       >
         <Actions />
         {isAnnotationEnabled && (
-          <T>
-            <Suspense>
-              <AnnotationHandlerRegistration />
-            </Suspense>
-          </T>
+          <Suspense>
+            <AnnotationHandlerRegistration />
+          </Suspense>
         )}
         <TooltipInfo />
 

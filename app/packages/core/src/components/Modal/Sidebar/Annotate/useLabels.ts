@@ -366,7 +366,7 @@ export default function useLabels() {
     };
 
     resetOverlays();
-  }, [active, removeOverlay, setLabels, setLoading]); // omit: [currentLabels]
+  }, [active, removeOverlay, setLabels, setLoading]);
 
   // Reset when the sample changes so the primary loading effect below starts
   // fresh instead of entering the refresh path with stale labels.
@@ -379,14 +379,7 @@ export default function useLabels() {
       loadingRef.current = LabelsState.UNSET;
       setLoading(LabelsState.UNSET);
     };
-  }, [
-    currentSampleId,
-    modalSample?.sample,
-    scene,
-    removeOverlay,
-    setLabels,
-    setLoading,
-  ]); // omit: [currentLabels]
+  }, [currentSampleId, scene, removeOverlay, setLabels, setLoading]);
 
   useEffect(() => {
     // Flipped to `true` by the cleanup function so in-flight async work

@@ -363,7 +363,7 @@ export const groupSamples = graphQLSelectorFamily<
           group: {
             slice: get(groupSlice),
             id: groupIdValue,
-            slices,
+            slices: slices ?? [],
           },
         },
         paginationData,
@@ -505,5 +505,8 @@ export const groupStatistics = atomFamily<"group" | "slice", boolean>({
  */
 export const groupView = selector<State.Stage[]>({
   key: "groupView",
-  get: ({ get }) => get(viewAtoms.view),
+  get: ({ get }) =>
+    get(viewAtoms.view).filter(
+      (stage) => stage._cls !== viewAtoms.GROUP_BY_VIEW_STAGE
+    ),
 });

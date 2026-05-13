@@ -2,7 +2,8 @@ import * as foq from "@fiftyone/relay";
 import * as fos from "@fiftyone/state";
 import { modalSelector } from "@fiftyone/state";
 import { PaginationItem } from "@mui/material";
-import Pagination, { PaginationProps } from "@mui/material/Pagination";
+import type { PaginationProps } from "@mui/material/Pagination";
+import Pagination from "@mui/material/Pagination";
 import { get as getValue } from "lodash";
 import React, {
   Suspense,
@@ -13,7 +14,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { PreloadedQuery, usePreloadedQuery } from "react-relay";
+import type { PreloadedQuery } from "react-relay";
+import { usePreloadedQuery } from "react-relay";
 import {
   useRecoilCallback,
   useRecoilState,
@@ -57,6 +59,7 @@ const PaginationBarContent = ({
   isTextBoxEmpty,
   textBoxRef,
   dynamicGroupCurrentElementIndex,
+  isPaginationChangeRef,
 }: {
   queryRef: PreloadedQuery<foq.paginateSamplesQuery>;
   orderBy: string | undefined;
@@ -67,6 +70,7 @@ const PaginationBarContent = ({
   isTextBoxEmpty: boolean;
   textBoxRef: React.RefObject<HTMLInputElement>;
   dynamicGroupCurrentElementIndex: number;
+  isPaginationChangeRef: React.RefObject<boolean>;
 }) => {
   const data = usePreloadedQuery(foq.paginateSamples, queryRef);
 
@@ -93,12 +97,19 @@ const PaginationBarContent = ({
   );
 
   const groupByFieldValue = fos.useGroupByFieldValue();
-  const mapRef = useMemo(
-    () => new Map<number, fos.ModalSample>(),
-    [groupByFieldValue]
-  );
+  const mapRef = useMemo(() => {
+    groupByFieldValue;
+    return new Map<number, fos.ModalSample>();
+  }, [groupByFieldValue]);
 
   const map = useMemo(() => {
+    if (
+      data.samples.__typename === "QueryTimeout" ||
+      data.samples.__typename === "%other"
+    ) {
+      throw new Error("unexpected");
+    }
+
     if (data?.samples?.edges?.length) {
       for (const { cursor, node } of data.samples.edges) {
         mapRef.set(Number(cursor), node as fos.ModalSample);
@@ -109,6 +120,8 @@ const PaginationBarContent = ({
 
   useEffect(() => {
     if (map.size === 0) return;
+    if (!isPaginationChangeRef.current) return;
+    isPaginationChangeRef.current = false;
     const nextSample = map.get(deferred - 1);
     if (nextSample) {
       setSample(nextSample);
@@ -116,7 +129,7 @@ const PaginationBarContent = ({
       // load a few previous samples for padding so navigating back is equally fast
       setCursor(deferred - 5);
     }
-  }, [map, setCursor, deferred, setSample]);
+  }, [map, setCursor, deferred, setSample, isPaginationChangeRef]);
 
   return (
     <>
@@ -161,6 +174,7 @@ const PaginationBarContent = ({
 export const GroupElementsLinkBar = React.memo(() => {
   const setCursor = useSetRecoilState(fos.dynamicGroupIndex);
   const { orderBy } = useRecoilValue(fos.dynamicGroupParameters)!;
+  const isPaginationChangeRef = useRef(false);
   const { queryRef } = useDynamicGroupSamples();
   const deferredQueryRef = useDeferredValue(queryRef);
 
@@ -180,6 +194,7 @@ export const GroupElementsLinkBar = React.memo(() => {
       setIsTextBoxEmpty(false);
 
       if (newElementIndex) {
+        isPaginationChangeRef.current = true;
         setDynamicGroupCurrentElementIndex(newElementIndex);
       } else {
         const newValue = e.target.value;
@@ -205,6 +220,7 @@ export const GroupElementsLinkBar = React.memo(() => {
         }
 
         if (newElementIndex === deferred) setIsTextBoxEmpty(false);
+        isPaginationChangeRef.current = true;
         setDynamicGroupCurrentElementIndex(newElementIndex);
 
         setTimeout(() => {
@@ -219,11 +235,13 @@ export const GroupElementsLinkBar = React.memo(() => {
     () => (e: KeyboardEvent) => {
       if (e.key === ",") {
         e.preventDefault();
+        isPaginationChangeRef.current = true;
         setDynamicGroupCurrentElementIndex((prev) =>
           prev <= 1 ? prev : prev - 1
         );
       } else if (e.key === ".") {
         e.preventDefault();
+        isPaginationChangeRef.current = true;
         setDynamicGroupCurrentElementIndex((prev) =>
           prev >= elementsCount ? prev : prev + 1
         );
@@ -249,6 +267,7 @@ export const GroupElementsLinkBar = React.memo(() => {
           isTextBoxEmpty={isTextBoxEmpty}
           textBoxRef={textBoxRef}
           dynamicGroupCurrentElementIndex={dynamicGroupCurrentElementIndex}
+          isPaginationChangeRef={isPaginationChangeRef}
         />
       </Suspense>
     </BarContainer>

@@ -21,7 +21,7 @@ export const Sample3d = React.memo(() => {
   const isInAnnotateMode = useAtomValue(modalMode) === "annotate";
 
   return (
-    <Suspense fallback={<Loading>Pixelating...</Loading>}>
+    <Suspense fallback={<Loading>What</Loading>}>
       <Sample3dContainer data-cy="modal-looker-container">
         {isGroup || (canAnnotate && isInAnnotateMode) ? (
           <Looker3d />

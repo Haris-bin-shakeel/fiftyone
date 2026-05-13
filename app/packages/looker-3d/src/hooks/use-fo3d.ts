@@ -120,7 +120,9 @@ type UseFo3dReturnType = {
  * Parses the active fo3d sample into a typed scene graph and keeps
  * normalized raw scene content in Recoil for downstream consumers.
  */
-export const useFo3d = (sample: fos.ModalSample): UseFo3dReturnType => {
+export const useFo3d = (
+  sample: fos.ModalSample | null | undefined
+): UseFo3dReturnType => {
   const mediaField = useRecoilValue(fos.selectedMediaField(true));
   const isGroup = useRecoilValue(fos.isGroup);
   const activeSlices = fos.useActive3dSlices();
@@ -136,9 +138,9 @@ export const useFo3d = (sample: fos.ModalSample): UseFo3dReturnType => {
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [rawData, setRawData] = useState<FiftyoneSceneRawJson | null>(null);
 
-  const filepath = sample.sample.filepath;
+  const filepath = sample?.sample?.filepath ?? "";
   const mediaPath = useMemo(
-    () => getMediaPathForFo3dSample(sample, mediaField),
+    () => (sample ? getMediaPathForFo3dSample(sample, mediaField) : ""),
     [sample, mediaField]
   );
   const isRealFo3dScene = useMemo(

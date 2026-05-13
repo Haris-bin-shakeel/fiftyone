@@ -18,9 +18,7 @@ import {
   useRecoilValueLoadable,
 } from "recoil";
 
-export default ({
-  children,
-}: React.PropsWithChildren<Record<string, never>>) => {
+export default ({ children }: React.PropsWithChildren) => {
   const actions = fos.useRenderConfig3dActions();
   const modal = useRecoilValueLoadable(modalSample);
   const slice = useRecoilValue(modalGroupSlice);

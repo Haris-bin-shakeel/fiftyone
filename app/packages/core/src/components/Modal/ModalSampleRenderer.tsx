@@ -1,10 +1,10 @@
 import {
+  PluginComponentType,
+  SampleRendererProps,
   createSampleRendererRenderContext,
   getComponent,
   getMatchingSampleRenderer,
   getSampleRendererComponent,
-  PluginComponentType,
-  SampleRendererProps,
   useActivePlugins,
 } from "@fiftyone/plugins";
 import * as fos from "@fiftyone/state";

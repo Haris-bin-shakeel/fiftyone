@@ -29,6 +29,17 @@ from fiftyone.server.scalars import BSONArray, JSON
 _LABEL_TAGS = "_label_tags"
 
 
+def _make_group_field_stage(view):
+    group_by = next(
+        (s for s in view._stages if isinstance(s, fosg.GroupBy)), None
+    )
+    if group_by is None:
+        return None
+    return fosg.Mongo(
+        [{"$addFields": {"_group": group_by._get_group_expr(view)[0]}}]
+    )
+
+
 @gql.input
 class ExtendedViewForm:
     filters: Optional[JSON] = None
@@ -130,20 +141,10 @@ def get_view(
             view = dataset.view()
 
         if dynamic_group is not None:
-            mongo = None
-            for stage in view._stages:
-                if isinstance(stage, fosg.GroupBy):
-                    mongo = fosg.Mongo(
-                        [
-                            {
-                                "$addFields": {
-                                    "_group": stage._get_group_expr(view)[0]
-                                }
-                            }
-                        ]
-                    )
+            group_stage = _make_group_field_stage(view)
             view = view.get_dynamic_group(dynamic_group)
-            view.add_stage(mongo)
+            if group_stage is not None:
+                view = view.add_stage(group_stage)
 
         media_types = None
         if sample_filter is not None:

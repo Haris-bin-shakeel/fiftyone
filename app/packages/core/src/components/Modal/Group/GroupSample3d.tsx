@@ -48,7 +48,7 @@ export default () => {
   }, [actions, activeSlices, modalId, pinnedSlice, sampleMapKey]);
 
   if (!Object.keys(allSampleMap).length) {
-    return <Loading>No 3D slices</Loading>;
+    return <Loading>Pixelating...</Loading>;
   }
 
   if (pinnedSlice && !allSampleMap[pinnedSlice]) {

@@ -48,8 +48,6 @@ export const Looker3d = () => {
     [mediaPath, sample]
   );
 
-  if (!sample) return null;
-
   const [isHovering, setIsHovering] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout>>(null);
   const hoveringRef = useRef(false);
@@ -187,6 +185,8 @@ export const Looker3d = () => {
       timeout.current && clearTimeout(timeout.current);
     };
   }, [clear, isHovering]);
+
+  if (!sample) return null;
 
   if (!shouldRenderFo3dComponent) {
     return <div>Unsupported media type: {mediaType}</div>;

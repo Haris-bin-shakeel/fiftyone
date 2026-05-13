@@ -53,8 +53,7 @@ export const SampleWrapper = ({
     };
   }, [clear, hovering]);
   const hoveringRef = useRef(false);
-  const recoilSample = useRecoilValue(sampleAtom);
-  const sample = providedSample ?? recoilSample;
+  const sample = providedSample ?? useRecoilValue(sampleAtom);
   const { handlers: hoverEventHandlers } = useHoveredSample(sample.sample, {
     update,
     clear,
@@ -83,6 +82,8 @@ export const SampleWrapper = ({
 
 export const Sample2D = () => {
   const id = useRecoilValue(modalSampleId);
+
+  console.log(id);
 
   return (
     <SampleWrapper>
