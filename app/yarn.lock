@@ -3456,6 +3456,7 @@ __metadata:
   dependencies:
     "@bufbuild/protobuf": "npm:^2.11.0"
     "@fiftyone/plugins": "npm:*"
+    "@fiftyone/tiling": "npm:*"
   languageName: unknown
   linkType: soft
 
